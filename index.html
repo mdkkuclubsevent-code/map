@@ -41,6 +41,7 @@
     --sl: env(safe-area-inset-left, 0px);
     --sr: env(safe-area-inset-right, 0px);
     --sb: env(safe-area-inset-bottom, 0px);
+    --st: env(safe-area-inset-top, 0px);
   }
 
   html { font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -243,11 +244,22 @@
     box-shadow: 0 0 0 6px var(--clay), 0 14px 26px rgba(90,45,20,.32) !important;
   }
 
-  /* ---- detail panel: always a bottom sheet ---- */
+  /* ---- detail panel: a bottom sheet on wide screens, full-screen on phones ---- */
   .panel {
-    position: absolute; z-index: 12; display: flex; flex-direction: column;
+    position: absolute; left: 0; right: 0; bottom: 0; max-height: 68%;
+    border-top: 3px solid rgba(58,42,30,.34);
+    z-index: 12; display: flex; flex-direction: column;
     background: var(--paper);
     transition: transform .34s cubic-bezier(.22,.9,.3,1), visibility 0s;
+  }
+  /* On a phone the sheet left a strip of half-covered map above it while
+     squeezing the club copy into a third of the screen. Below this width the
+     panel takes the whole viewport instead -- position: fixed, so it covers the
+     header and zone bar too, not just the map area inside .stage-wrap. */
+  @media (max-width: 780px) {
+    .panel { position: fixed; inset: 0; max-height: none; border-top: 0; }
+    /* Clears the notch/status bar that the sheet used to sit safely below. */
+    .panel-grab { padding-top: calc(.375rem + var(--st)); }
   }
   /* Keeps the closed panel out of the tab order and the a11y tree without
      killing the slide-out animation. */
@@ -920,9 +932,15 @@ class Component extends DCLogic {
   viewBox = () => {
     const r = this.rect();
     if (!r) return { w: 0, h: 0, cx: 0, cy: 0 };
-    if (!this.state.open) return { w: r.width, h: r.height, cx: r.width / 2, cy: r.height / 2 };
+    const full = { w: r.width, h: r.height, cx: r.width / 2, cy: r.height / 2 };
+    if (!this.state.open) return full;
+    const ph = this._panel ? this._panel.getBoundingClientRect().height : 0;
+    /* At the phone breakpoint the panel is full-screen, so there is no free
+       slice to aim at. Centre in the whole viewport instead -- that is where
+       the booth needs to be sitting the moment the panel is dismissed. */
+    if (ph >= r.height * 0.9) return full;
     const sheet = this._panel
-      ? Math.min(this._panel.getBoundingClientRect().height, r.height * 0.62)
+      ? Math.min(ph, r.height * 0.62)
       : r.height * 0.5;
     const h = Math.max(140, r.height - sheet);
     return { w: r.width, h, cx: r.width / 2, cy: h / 2 };
@@ -1335,13 +1353,10 @@ class Component extends DCLogic {
       legendStyle: { display: showLegend && this.state.legendOpen ? 'block' : 'none' },
       panelOpenAttr: open ? 'true' : 'false',
       panelDragAttr: this.state.dragging ? 'true' : 'false',
+      /* Geometry (bottom sheet vs. full screen) lives in the stylesheet so the
+         phone breakpoint can override it -- inline styles would always win.
+         Only the open/closed state is set here. */
       panelStyle: {
-        left: 0, right: 0, bottom: 0,
-        /* Was 86%: the sheet covered nearly the whole screen, so opening a
-           booth meant losing sight of the map. 68% keeps the plan in view and
-           still shows the club heading plus the first paragraph. */
-        maxHeight: '68%',
-        borderTop: '3px solid rgba(58,42,30,.4)',
         boxShadow: open ? '0 -14px 40px rgba(58,42,30,.3)' : 'none',
         transform: open ? 'translateY(' + this.state.dy + 'px)' : 'translateY(103%)',
         pointerEvents: open ? 'auto' : 'none'
