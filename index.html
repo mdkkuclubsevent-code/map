@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="./support.js" defer></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light" />
+<meta name="theme-color" content="#BFE3F2" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<!-- The dc runtime pulls React + ReactDOM from unpkg at boot; warming the
+     connection saves a DNS+TLS round trip on mobile networks. -->
+<link rel="preconnect" href="https://unpkg.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+Thai:wght@600;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Mobile-first. Base rules target phones; min-width queries
+     scale up. Map-canvas internals stay in px on purpose: they
+     are coordinates inside a 1600x1210 world that is CSS-scaled
+     as a whole, so relative units there would distort the plan.
+     ============================================================ */
+
+  :root {
+    --ink: #3A2A1E; --ink-2: #4A3520; --muted: #5A3A1E; --muted-2: #7A5A34; --faint: #8A6A3A;
+    --paper: #FDF7EA; --sand: #F2E6CE; --sand-2: #EFE0C4;
+    --clay: #9E3B26; --gold: #A07C46;
+    --edge: rgba(58,42,30,.34); --edge-soft: rgba(58,42,30,.2);
+    --tap: 2.75rem;                       /* 44px minimum touch target */
+    --pad-x: clamp(.875rem, 3vw, 2.125rem);
+    --sl: env(safe-area-inset-left, 0px);
+    --sr: env(safe-area-inset-right, 0px);
+    --sb: env(safe-area-inset-bottom, 0px);
+  }
+
+  html { font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--sand); overflow: hidden; overscroll-behavior: none; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  img, svg, video, canvas { max-width: 100%; height: auto; }
+  button { font: inherit; color: inherit; }
+  h1, h2, h3, p { margin: 0; }
+
+  :where(a, button, [role="button"]):focus-visible {
+    outline: 3px solid var(--clay); outline-offset: 2px;
+  }
+
+  /* ---- app shell ---- */
+  .app {
+    position: relative; display: flex; flex-direction: column;
+    width: 100%; height: 100vh; height: 100dvh; overflow: hidden;
+    background: var(--sand);
+    font-family: 'Sarabun', system-ui, sans-serif; font-size: 1rem; line-height: 1.6; color: var(--ink);
+  }
+
+  /* ---- header ---- */
+  .hdr {
+    position: relative; flex: none; overflow: hidden;
+    padding: .625rem calc(var(--pad-x) + var(--sr)) .625rem calc(var(--pad-x) + var(--sl));
+    background: linear-gradient(178deg, #BFE3F2 0%, #DDEFF0 42%, var(--sand) 100%);
+    border-bottom: 2px solid rgba(158,59,38,.22);
+  }
+  .hdr-glow {
+    position: absolute; inset: -30% -10% auto -10%; height: 200%; pointer-events: none;
+    background: radial-gradient(ellipse 60% 55% at 50% 78%, rgba(255,214,140,.85), rgba(255,214,140,0) 70%);
+    animation: sunrise 6s ease-in-out infinite alternate;
+  }
+  .hdr-in { position: relative; display: flex; flex-direction: column; gap: .5rem; max-width: 105rem; margin: 0 auto; }
+  .brand { display: flex; flex-direction: column; gap: .125rem; min-width: 0; }
+  .eyebrow {
+    font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 500;
+    font-size: .6875rem; letter-spacing: .42em; color: #2B5B7A; text-transform: uppercase;
+  }
+  .title {
+    margin: 0; font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 700;
+    font-size: clamp(1.875rem, 8vw, 4.625rem); line-height: .92; letter-spacing: .04em;
+    background: linear-gradient(174deg, #F6C86A 4%, #E2A02F 44%, #B26A1C 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 2px 0 rgba(255,255,255,.35);
+  }
+  .subtitle {
+    font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: .8125rem;
+    line-height: 1.5; color: #6B4B12; letter-spacing: .02em; text-wrap: balance;
+  }
+
+  @keyframes drift {
+    0%   { transform: translate3d(0,0,0) scale(1); opacity: .5; }
+    100% { transform: translate3d(-30px,-22px,0) scale(1.06); opacity: .78; }
+  }
+  @keyframes sunrise {
+    0% { opacity: .35; }
+    100% { opacity: .75; }
+  }
+  /* ---- filter bar ---- */
+  .nav {
+    position: relative; z-index: 8; flex: none;
+    display: flex; align-items: center; gap: .5rem;
+    padding: .5rem calc(var(--pad-x) + var(--sr)) .5rem calc(var(--pad-x) + var(--sl));
+    background: var(--sand-2); border-bottom: 1.5px solid rgba(58,42,30,.16);
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  .nav::-webkit-scrollbar { height: .375rem; }
+  .nav::-webkit-scrollbar-thumb { background: var(--edge-soft); border-radius: 3px; }
+  .chip {
+    flex: none; display: flex; align-items: center; gap: .4375rem; white-space: nowrap;
+    min-height: var(--tap); padding: 0 .9375rem;
+    font-family: 'Sarabun', sans-serif; font-size: .9375rem; font-weight: 600;
+    border-radius: 2px; cursor: pointer; transition: background .18s ease, border-color .18s ease, color .18s ease;
+  }
+  .chip-dot { flex: none; width: .6875rem; height: .6875rem; border-radius: 2px; border: 1.5px solid rgba(58,42,30,.4); }
+  .chip-count { font-size: .6875rem; opacity: .62; font-weight: 600; }
+  .legend-toggle {
+    flex: none; align-items: center; gap: .4375rem; white-space: nowrap;
+    min-height: var(--tap); padding: 0 .875rem;
+    font-family: 'Sarabun', sans-serif; font-size: .875rem; font-weight: 600;
+    border: 1.5px solid rgba(58,42,30,.22); border-radius: 2px; cursor: pointer; color: var(--ink-2);
+  }
+
+  /* ---- map area ---- */
+  .stage-wrap { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; background: var(--sand); }
+  .vp { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+  .vp:active { cursor: grabbing; }
+  .vp:focus-visible { outline: 3px solid var(--clay); outline-offset: -3px; }
+  .vp-tex {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 45% 40% at 22% 18%, rgba(196,150,86,.22), transparent 70%),
+                radial-gradient(ellipse 50% 45% at 82% 76%, rgba(120,150,110,.18), transparent 72%);
+    animation: drift 34s ease-in-out infinite alternate;
+  }
+
+  /* ---- zone jump bar (floats over the map) ---- */
+  /* The strip runs the full width but is mostly transparent, and it sits above
+     the map. Without this the empty part of it swallows taps meant for the
+     stage card and the booths underneath. */
+  .jumps {
+    position: absolute; z-index: 6; display: flex; pointer-events: none;
+    top: .625rem; left: calc(.625rem + var(--sl)); right: calc(.625rem + var(--sr));
+    gap: .5rem; overflow-x: auto; scrollbar-width: none; touch-action: pan-x;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  .jump { pointer-events: auto; }
+  .jumps::-webkit-scrollbar { display: none; }
+  .jump {
+    flex: none; min-height: var(--tap); padding: 0 1rem;
+    display: inline-flex; align-items: center; white-space: nowrap;
+    font-family: 'Sarabun', sans-serif; font-size: .875rem; font-weight: 700;
+    color: var(--ink-2); background: rgba(253,247,234,.94);
+    border: 1.5px solid var(--edge); border-radius: 2px; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(90,45,20,.14);
+  }
+
+  /* ---- legend + zoom controls ---- */
+  .legend {
+    position: absolute; z-index: 6;
+    left: calc(1rem + var(--sl)); bottom: calc(1rem + var(--sb));
+    max-width: calc(100% - 6.5rem - var(--sl) - var(--sr));
+    padding: .8125rem 1rem; background: rgba(253,247,234,.96);
+    border: 2px solid rgba(58,42,30,.32); border-radius: 2px;
+    box-shadow: 0 4px 16px rgba(90,45,20,.18);
+  }
+  .legend-head { font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 700; font-size: .75rem; letter-spacing: .24em; color: var(--faint); margin-bottom: .5rem; }
+  .legend-list { display: flex; flex-direction: column; gap: .4375rem; }
+  .legend-item { display: flex; align-items: center; gap: .5625rem; font-size: .8125rem; font-weight: 600; color: var(--ink-2); }
+  .legend-swatch { flex: none; width: .9375rem; height: .9375rem; border-radius: 2px; }
+  .zoom {
+    position: absolute; z-index: 6;
+    right: calc(1rem + var(--sr)); bottom: calc(1rem + var(--sb));
+    display: flex; flex-direction: column; gap: .5rem;
+  }
+  .zbtn {
+    width: var(--tap); height: var(--tap);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.375rem; font-weight: 700; color: var(--ink-2);
+    background: rgba(253,247,234,.94); border: 2px solid rgba(58,42,30,.4);
+    border-radius: 2px; cursor: pointer; box-shadow: 0 3px 10px rgba(90,45,20,.18);
+  }
+
+  /* ---- booths / stage (inside the scaled map world: px is correct here) ---- */
+  .booth, .stage-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    text-align: center; cursor: pointer; user-select: none;
+    transition: transform .18s ease, box-shadow .18s ease, opacity .22s ease;
+  }
+  .booth { padding: 4px 6px; font-family: 'Sarabun', sans-serif; }
+  .booth-name { font-weight: 700; font-size: 22px; line-height: 1.1; }
+  .stage-card { background: linear-gradient(176deg, #B44A2F, #8E3320); border: 4px solid var(--ink); }
+  .booth:focus-visible, .stage-card:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 6px var(--clay), 0 14px 26px rgba(90,45,20,.32) !important;
+  }
+
+  /* ---- detail panel: bottom sheet on phones, side panel from 640px ---- */
+  .panel {
+    position: absolute; z-index: 12; display: flex; flex-direction: column;
+    background: var(--paper);
+    transition: transform .34s cubic-bezier(.22,.9,.3,1), visibility 0s;
+  }
+  /* Keeps the closed panel out of the tab order and the a11y tree without
+     killing the slide-out animation. */
+  .panel[data-open="false"] {
+    visibility: hidden;
+    transition: transform .34s cubic-bezier(.22,.9,.3,1), visibility 0s linear .34s;
+  }
+  .panel:focus { outline: none; }
+  .panel-grab { justify-content: center; padding: .5rem 0 .125rem; }
+  .panel-grab span { width: 3.375rem; height: 5px; border-radius: 3px; background: rgba(58,42,30,.3); }
+  .panel-head {
+    flex: none; padding: 1rem 1.25rem;
+    background: linear-gradient(176deg, #BFE3F2, #EAF1E4 70%, var(--paper));
+    border-bottom: 2px solid rgba(158,59,38,.22);
+  }
+  .panel-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+  .panel-title { font-family: 'Noto Serif Thai', serif; font-weight: 700; font-size: clamp(1.375rem, 5.5vw, 1.75rem); line-height: 1.18; color: var(--ink); text-wrap: pretty; }
+  .panel-sub { font-size: .875rem; font-weight: 600; color: var(--muted-2); }
+  .panel-close {
+    flex: none; width: var(--tap); height: var(--tap);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem; color: var(--muted); background: rgba(255,255,255,.7);
+    border: 1.5px solid rgba(58,42,30,.32); border-radius: 2px; cursor: pointer;
+  }
+  .panel-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 1.25rem 1.25rem calc(1.75rem + var(--sb));
+    display: flex; flex-direction: column; gap: 1.25rem;
+  }
+  .sec { display: flex; flex-direction: column; gap: .4375rem; }
+  .sec-label { font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 700; font-size: .75rem; letter-spacing: .22em; color: var(--gold); }
+  /* 60-70 characters keeps line length readable once the sheet is full-width. */
+  .prose { font-size: .96875rem; line-height: 1.75; color: var(--ink-2); text-wrap: pretty; max-width: 68ch; }
+  .callout { padding: .875rem 1rem; background: #F7EDD8; border: 1.5px solid rgba(158,59,38,.22); font-size: .9375rem; line-height: 1.65; color: var(--ink-2); text-wrap: pretty; max-width: 68ch; }
+  /* Rundown as real text: selectable, searchable, screen-reader friendly, and
+     it costs no image request or layout shift. */
+  .rundown-head {
+    font-family: 'Cinzel', serif; font-size: .9375rem; font-weight: 700;
+    letter-spacing: .18em; color: var(--clay);
+    padding-bottom: .375rem; border-bottom: 1.5px solid rgba(158,59,38,.35);
+  }
+  .rundown { list-style: none; margin: 0; padding: 0; }
+  .rundown-row {
+    display: flex; align-items: baseline; gap: .875rem;
+    padding: .6875rem 0; border-bottom: 1px dashed rgba(58,42,30,.22);
+  }
+  .rundown-row:last-child { border-bottom: 0; }
+  .rundown-time {
+    flex: 0 0 auto; min-width: 4.5ch;
+    font-variant-numeric: tabular-nums; font-weight: 700;
+    font-size: 1.0625rem; color: var(--clay);
+  }
+  .rundown-act { font-size: 1rem; line-height: 1.5; color: var(--ink-2); }
+  /* Basketball submitted a separate LINE group per team, so this wraps rather
+     than assuming a single button. */
+  .join-row { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .join-btn {
+    min-height: var(--tap); padding: 0 1.125rem;
+    display: inline-flex; align-items: center;
+    background: var(--clay); color: #FCEFD8; text-decoration: none;
+    border: 1.5px solid var(--ink); border-radius: 2px;
+    font-size: .9375rem; font-weight: 700;
+  }
+  .ig-link { color: var(--clay); font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  .panel-foot { margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(58,42,30,.18); font-size: .8125rem; line-height: 1.6; color: var(--faint); }
+
+  /* ============================ tablet ============================ */
+  @media (min-width: 640px) {
+    .hdr { padding-top: clamp(.75rem, 2.2vw, 1.375rem); padding-bottom: clamp(.75rem, 1.8vw, 1rem); }
+    .eyebrow { font-size: .875rem; }
+    .subtitle { font-size: 1.0625rem; }
+    .chip { min-height: 2.25rem; padding: .5rem .875rem; font-size: .875rem; }
+    .jump { min-height: 2.25rem; font-size: .8125rem; padding: 0 .9375rem; }
+    .panel-body { padding: 1.25rem 1.5rem calc(1.75rem + var(--sb)); }
+  }
+
+  /* ==================== short viewports (landscape phones) ==================== */
+  @media (max-height: 560px) {
+    .eyebrow, .subtitle, .hdr-glow { display: none; }
+    .title { font-size: clamp(1.25rem, 4.5vw, 1.75rem); }
+    .hdr { padding-top: .375rem; padding-bottom: .375rem; }
+  }
+
+  /* ==================== hover: pointer devices only ====================
+     These were `style-hover` attributes, which the runtime compiles to a
+     plain :hover rule. On touch that state sticks after a tap and leaves
+     booths visibly lifted. Gating on hover/pointer fixes that.          */
+  @media (hover: hover) and (pointer: fine) {
+    .booth:hover { transform: translateY(-4px) !important; box-shadow: 0 12px 22px rgba(90,45,20,.3) !important; z-index: 7 !important; }
+    .stage-card:hover { transform: translateY(-3px) !important; box-shadow: 0 14px 26px rgba(90,45,20,.35) !important; }
+    .chip:hover, .legend-toggle:hover { filter: brightness(1.04); }
+    .jump:hover, .zbtn:hover { background: #FFF6E2; }
+    .panel-close:hover { background: #fff; }
+  }
+  /* Touch equivalent: press feedback instead of hover. */
+  @media (hover: none) {
+    .booth:active, .stage-card:active { transform: translateY(-2px) scale(.99) !important; }
+    .chip:active, .jump:active, .zbtn:active, .panel-close:active { filter: brightness(.94); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important; scroll-behavior: auto !important;
+    }
+    .hdr-glow { animation: none; opacity: .6; }
+    .vp-tex { animation: none; }
+  }
+</style>
+</helmet>
+
+<div class="app">
+
+  <header class="hdr">
+    <div class="hdr-glow"></div>
+    <div class="hdr-in">
+      <div class="brand">
+        <div class="eyebrow">The</div>
+        <h1 class="title">NEW DAWN</h1>
+        <p class="subtitle">งานวันเปิดโลกกิจกรรม · 2 ส.ค. 69 · แผนผังชมรม</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="nav" aria-label="ตัวกรองชมรม">
+    <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+      <button type="button" class="chip" style="{{ c.style }}" aria-pressed="{{ c.pressed }}" onClick="{{ c.onClick }}">
+        <span class="chip-dot" style="background: {{ c.dot }};"></span>
+        {{ c.label }}
+        <span class="chip-count">{{ c.count }}</span>
+      </button>
+    </sc-for>
+    <button type="button" class="legend-toggle" style="{{ legendToggleStyle }}" aria-pressed="{{ legendPressed }}" onClick="{{ toggleLegend }}">◧ {{ legendToggleLabel }}</button>
+  </nav>
+
+  <div class="stage-wrap">
+
+    <div class="vp" tabindex="0" role="region" aria-label="แผนผังงาน เลื่อนด้วยปุ่มลูกศร ย่อขยายด้วยปุ่ม + และ − กด 0 เพื่อดูทั้งผัง"
+       ref="{{ viewportRef }}" onKeyDown="{{ onViewKey }}"
+       onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" onPointerCancel="{{ onUp }}">
+
+    <div class="vp-tex"></div>
+
+    <div ref="{{ innerRef }}" style="{{ innerStyle }}">
+
+      <div style="position: absolute; left: 440px; top: 40px; width: 1120px; height: 750px; background: #FDF7EA; border: 6px solid #3A2A1E; box-shadow: inset 0 0 60px rgba(160,120,70,.16);"></div>
+      <div style="position: absolute; left: 440px; top: 784px; width: 6px; height: 358px; background: #3A2A1E;"></div>
+      <div style="position: absolute; left: 1554px; top: 784px; width: 6px; height: 358px; background: #3A2A1E;"></div>
+
+      <div class="stage-card" role="button" tabindex="0" aria-label="เวทีกลาง ดูตารางการแสดง"
+           onClick="{{ selectStage }}" onKeyDown="{{ selectStageKey }}" onFocus="{{ focusStage }}" style="{{ stageStyle }}">
+        <div style="font-family: 'Noto Serif Thai', serif; font-weight: 700; font-size: 34px; color: #FCEFD8; letter-spacing: .06em;">เวที</div>
+        <div style="font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: .3em; color: rgba(252,239,216,.72);">MAIN STAGE</div>
+        <div style="margin-top: 6px; padding: 3px 10px; border: 1.5px solid rgba(252,239,216,.5); border-radius: 2px; font-size: 12px; font-weight: 600; color: #FCEFD8;">ดูตารางการแสดง</div>
+      </div>
+
+      <div style="position: absolute; left: 70px; top: 380px; width: 110px; height: 310px; border: 5px solid #3A2A1E; background: repeating-linear-gradient(180deg, #FDF7EA 0 46px, #3A2A1E 46px 49px); display: flex; align-items: flex-end; justify-content: center;">
+        <div style="font-size: 30px; line-height: 1; color: #3A2A1E; padding-bottom: 6px;">↓</div>
+      </div>
+      <div style="position: absolute; left: 330px; top: 380px; width: 110px; height: 310px; border: 5px solid #3A2A1E; background: repeating-linear-gradient(180deg, #FDF7EA 0 46px, #3A2A1E 46px 49px); display: flex; align-items: flex-start; justify-content: center;">
+        <div style="font-size: 30px; line-height: 1; color: #3A2A1E; padding-top: 6px;">↑</div>
+      </div>
+      <div style="position: absolute; left: 200px; top: 545px; width: 110px; height: 145px; border: 5px solid #3A2A1E; background: #FDF7EA; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #3A2A1E;">⇕</div>
+      <div style="position: absolute; left: 40px; top: 706px; width: 420px; text-align: center; font-family: 'Noto Serif Thai', serif; font-weight: 700; font-size: 22px; color: #5A3A1E;">บันไดและลิฟต์</div>
+
+      <div style="position: absolute; left: 70px; top: 810px; width: 122px; height: 230px; background: #9E3B26; border: 4px solid #3A2A1E; display: flex; align-items: center; justify-content: center;">
+        <div style="transform: rotate(-90deg); white-space: nowrap; font-family: 'Noto Serif Thai', serif; font-weight: 700; font-size: 21px; color: #FCEFD8;">จุดลงทะเบียน</div>
+      </div>
+      <div style="position: absolute; left: 200px; top: 1060px; width: 280px; font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: 20px; color: #7A5A34;">ฝั่งห้องน้ำชาย</div>
+
+      <div style="position: absolute; left: 440px; top: 812px; width: 220px; height: 74px; border: 5px solid #3A2A1E; background: #FDF7EA;"></div>
+      <div style="position: absolute; left: 858px; top: 812px; width: 170px; height: 74px; border: 5px solid #3A2A1E; background: #FDF7EA;"></div>
+      <div style="position: absolute; left: 1240px; top: 812px; width: 320px; height: 74px; border: 5px solid #3A2A1E; background: #FDF7EA;"></div>
+      <div style="position: absolute; left: 655px; top: 833px; width: 210px; height: 4px; background: #3A2A1E;"></div>
+      <div style="position: absolute; left: 1023px; top: 833px; width: 222px; height: 4px; background: #3A2A1E;"></div>
+      <div style="position: absolute; left: 660px; top: 792px; width: 200px; text-align: center; font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: 19px; color: #5A3A1E; background: #F2E6CE; padding: 2px 0;">ประตูปิด</div>
+      <div style="position: absolute; left: 1035px; top: 760px; width: 200px; text-align: center; font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #5A3A1E; background: #F2E6CE; padding: 2px 0;">ประตูทางเข้า<br />ห้องมิตรภาพ</div>
+
+      <div style="position: absolute; left: 440px; top: 1068px; width: 220px; height: 74px; border: 5px solid #3A2A1E; background: #FDF7EA;"></div>
+      <div style="position: absolute; left: 858px; top: 1068px; width: 170px; height: 74px; border: 5px solid #3A2A1E; background: #FDF7EA;"></div>
+      <div style="position: absolute; left: 1240px; top: 1068px; width: 320px; height: 74px; border: 5px solid #3A2A1E; background: #FDF7EA;"></div>
+      <div style="position: absolute; left: 655px; top: 1089px; width: 210px; height: 4px; background: #3A2A1E;"></div>
+      <div style="position: absolute; left: 1023px; top: 1089px; width: 222px; height: 4px; background: #3A2A1E;"></div>
+      <div style="position: absolute; left: 660px; top: 1016px; width: 200px; text-align: center; font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #5A3A1E; background: #F2E6CE; padding: 2px 0;">ทางเข้าห้อง<br />มอดินแดง</div>
+
+      <div style="position: absolute; left: 520px; top: 190px; width: 170px; text-align: center; font-family: 'Cinzel', serif; font-weight: 700; font-size: 19px; letter-spacing: .24em; color: #A07C46;">ZONE A</div>
+      <div style="position: absolute; left: 850px; top: 190px; width: 306px; text-align: center; font-family: 'Cinzel', serif; font-weight: 700; font-size: 19px; letter-spacing: .24em; color: #A07C46;">ZONE B</div>
+      <div style="position: absolute; left: 1330px; top: 190px; width: 170px; text-align: center; font-family: 'Cinzel', serif; font-weight: 700; font-size: 19px; letter-spacing: .24em; color: #A07C46;">ZONE C</div>
+      <div style="position: absolute; left: 1120px; top: 950px; width: 420px; text-align: center; font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 700; font-size: 19px; letter-spacing: .2em; color: #A07C46;">ZONE D · โถงทางเดิน</div>
+
+      <sc-for list="{{ booths }}" as="b" hint-placeholder-count="8">
+        <div class="booth" role="button" tabindex="{{ b.tabIndex }}" aria-label="{{ b.aria }}"
+             style="{{ b.style }}" onClick="{{ b.onClick }}" onKeyDown="{{ b.onKey }}" onFocus="{{ b.onFocus }}">
+          <div style="{{ b.numStyle }}">{{ b.num }}</div>
+          <div class="booth-name">{{ b.name }}</div>
+        </div>
+      </sc-for>
+
+    </div>
+    </div>
+
+    <div class="jumps" data-nodrag role="group" aria-label="ข้ามไปยังโซน">
+      <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="6">
+        <button type="button" class="jump" onClick="{{ j.onClick }}">{{ j.label }}</button>
+      </sc-for>
+    </div>
+
+    <div class="legend" data-nodrag style="{{ legendStyle }}" role="group" aria-label="คำอธิบายสี">
+      <div class="legend-head">LEGEND</div>
+      <div class="legend-list">
+        <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+          <div class="legend-item">
+            <span class="legend-swatch" style="background: {{ l.fill }}; border: 2px solid {{ l.line }};"></span>
+            {{ l.label }}
+          </div>
+        </sc-for>
+        <div class="legend-item" style="padding-top: 5px; border-top: 1px dashed rgba(58,42,30,.25);">
+          <span class="legend-swatch" style="background: #9E3B26; border: 2px solid #3A2A1E;"></span>
+          เวที / จุดลงทะเบียน
+        </div>
+      </div>
+    </div>
+
+    <div class="zoom" data-nodrag role="group" aria-label="ควบคุมการย่อขยาย">
+      <button type="button" class="zbtn" aria-label="ขยายแผนผัง" onClick="{{ zoomIn }}">+</button>
+      <button type="button" class="zbtn" aria-label="ย่อแผนผัง" onClick="{{ zoomOut }}">−</button>
+      <button type="button" class="zbtn" aria-label="ดูทั้งผัง" style="font-size: 1.0625rem;" onClick="{{ resetView }}">⤢</button>
+    </div>
+
+    <div class="panel" data-nodrag role="dialog" tabindex="-1" aria-label="รายละเอียดชมรม"
+         data-open="{{ panelOpenAttr }}" ref="{{ panelRef }}" style="{{ panelStyle }}">
+      <div class="panel-grab" style="{{ grabStyle }}">
+        <span></span>
+      </div>
+      <div class="panel-head">
+        <div class="panel-head-row">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="{{ chipStyle }}">{{ panelChip }}</span>
+              <span style="font-family: 'Cinzel', serif; font-size: .75rem; letter-spacing: .2em; color: var(--muted-2);">{{ panelZone }}</span>
+            </div>
+            <h2 class="panel-title">{{ panelTitle }}</h2>
+            <p class="panel-sub">{{ panelSub }}</p>
+          </div>
+          <button type="button" class="panel-close" aria-label="ปิดรายละเอียด" onClick="{{ closePanel }}">✕</button>
+        </div>
+      </div>
+
+      <div class="panel-body">
+        <sc-if value="{{ hasDesc }}" hint-placeholder-val="{{ true }}">
+          <div class="sec">
+            <h3 class="sec-label">ABOUT · เกี่ยวกับชมรม</h3>
+            <p class="prose">{{ panelDesc }}</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasActivity }}" hint-placeholder-val="{{ true }}">
+          <div class="sec">
+            <h3 class="sec-label">AT THE BOOTH · กิจกรรมที่บูธ</h3>
+            <p class="callout">{{ panelActivity }}</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasNote }}" hint-placeholder-val="{{ false }}">
+          <div class="sec">
+            <h3 class="sec-label">FROM THE CLUB · ฝากถึงน้อง ๆ</h3>
+            <p class="prose">{{ panelNote }}</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasContact }}" hint-placeholder-val="{{ false }}">
+          <div class="sec">
+            <h3 class="sec-label">CONTACT · ติดต่อและสมัคร</h3>
+            <sc-if value="{{ hasIg }}" hint-placeholder-val="{{ false }}">
+              <p class="prose">Instagram · <a class="ig-link" href="{{ panelIgHref }}" target="_blank" rel="noopener">@{{ panelIg }}</a></p>
+            </sc-if>
+            <sc-if value="{{ hasJoin }}" hint-placeholder-val="{{ false }}">
+              <div class="join-row">
+                <sc-for list="{{ panelJoins }}" as="j" hint-placeholder-count="1">
+                  <a class="join-btn" href="{{ j.url }}" target="_blank" rel="noopener">{{ j.label }} →</a>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasJoinHint }}" hint-placeholder-val="{{ false }}">
+              <p class="prose">การรับสมัคร · {{ panelJoinHint }}</p>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasSchedule }}" hint-placeholder-val="{{ false }}">
+          <div class="sec" style="gap: 9px;">
+            <h3 class="sec-label">RUNDOWN · ตารางการแสดง</h3>
+            <p class="rundown-head">FOLK SONG</p>
+            <ul class="rundown">
+              <sc-for list="{{ rundown }}" as="r" hint-placeholder-count="3">
+                <li class="rundown-row">
+                  <span class="rundown-time">{{ r.time }}</span>
+                  <span class="rundown-act">{{ r.act }}</span>
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+        </sc-if>
+
+        <p class="panel-foot">{{ panelFoot }}</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;showLegend&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;showBoothNumbers&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;roundedBooths&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;panelSide&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;right&quot;,&quot;left&quot;],&quot;default&quot;:&quot;right&quot;,&quot;tsType&quot;:&quot;'right' | 'left'&quot;,&quot;section&quot;:&quot;แผนที่&quot;}}">
+const CATS = {
+  sport: { label: 'กีฬา',                  fill: '#BFD99A', line: '#7C9F52', ink: '#2E4319' },
+  arts:  { label: 'ดนตรี/ศิลปะการแสดง',     fill: '#F6D48A', line: '#C99A34', ink: '#5A3F0E' },
+  life:  { label: 'ไลฟ์สไตล์/งานอดิเรก',    fill: '#F3A683', line: '#C2643C', ink: '#4E2412' },
+  org:   { label: 'องค์กรนักศึกษาแพทย์',    fill: '#A9C8DE', line: '#4B7E9E', ink: '#173446' }
+};
+
+const COL_A = 520, COL_B1 = 850, COL_B2 = 1006, COL_C = 1330;
+const rowA = i => 230 + i * 86;
+
+const BOOTHS = [
+  { id: 'tt', no: 3,   name: 'Table Tennis', sub: 'ชมรมเทเบิลเทนนิส', cat: 'sport', zone: 'ZONE A', x: COL_A, y: rowA(0), w: 170, h: 80,
+    desc: 'ตีปิงปอง,ฝึกทักษะต่างๆร่วมกัน',
+    act: 'มีโต๊ะสำหรับวางของชุมนุม และ มีโต๊ะที่ทำกิจกรรมเป็นการวางแก้วเรียงเป็นพิระมิดแล้วให้น้องๆตีลูกปิงปองให้แก้วล้มจากนั้นให้รางวัลน้องๆและเชิญชวนน้องเข้าชุมนุม',
+    note: '🏓 ขอเชิญชวนน้อง ๆ ทุกคนเข้าร่วมชมรมปิงปอง 🏓 หากน้อง ๆ กำลังมองหากิจกรรมสนุก ๆ ได้ออกกำลังกาย และฝึกทักษะความไว ปิงปองคือคำตอบ! ไม่จำเป็นต้องมีพื้นฐานมาก่อน ก็สามารถมาเรียนรู้และพัฒนาไปด้วยกันได้ ภายในชมรมมีทั้งการฝึกซ้อม การแข่งขัน และเพื่อน ๆ ที่พร้อมจะช่วยกันพัฒนาอย่างเป็นกันเอง มาเป็นส่วนหนึ่งของชมรมปิงปอง แล้วพบกันนะ!',
+    ig: 'mdkku_tabletennis.club',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSdpUXJderk1tzRSpuWY4Z2WHD_5M-Z0q2O5Rtvt3w_EHlhvBw/viewform?usp=dialog' }] },
+  { id: 'gun', no: 11,  name: 'ยิงปืน', sub: 'ชมรมยิงปืน', cat: 'sport', zone: 'ZONE A', x: COL_A, y: rowA(1), w: 170, h: 80,
+    desc: 'กิจกรรมเฟิร์สมิท กับคัดตัวนักกีฬา มีส่วนคุยและทำความรู้จักกัน',
+    act: 'เป็นกิจกรรมยิงแก้วน้ำให้ล้ม แล้วให้รางวัลน้องเป็นขนม1ห่อ',
+    note: 'น้องๆ คนที่สนใจอยากลองยิงปืนก็สามารถเข้าชุมนุมได้เลยยิงเป็นเลยไม่เป็นก็สามารถเข้าได้ เพราะที่สนามมีคนค่อยดูแลความปลอดภัยเสมอ',
+    ig: 'mdkkushootingclub',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/ZwaieXUgyr3gQ9rc7' }] },
+  { id: 'foot', no: 1, name: 'Football', sub: 'ชมรมฟุตบอล', cat: 'sport', zone: 'ZONE A', x: COL_A, y: rowA(2), w: 170, h: 80,
+    desc: 'เตะบอล ซ้อมบอลร่วมกันเพื่อการแข่งขัน',
+    act: 'เล่นโบว์ลิ่งแต่เป็นเตะบอลให้ล้มแทน',
+    ig: 'Mdkkufc',
+    joinhint: 'ผ่านการแนะนํา' },
+  { id: 'bask', no: 2, name: 'Basketball', sub: 'ชมรมบาสเกตบอล', cat: 'sport', zone: 'ZONE A', x: COL_A, y: rowA(3), w: 170, h: 80,
+    desc: 'ซ้อมชูท เลี้ยงลูกบาส เกมแผลน แข่งกันเล่นๆ',
+    act: 'ใครโยนบาสลงห่วงได้จะได้รับขนมฟรี',
+    note: 'มาเล่นบาสกันเยอะๆ น้าา ❤️‍🔥',
+    ig: 'mdkkubasketball',
+    joins: [{ label: 'ไลน์กลุ่มบาสหญิง', url: 'https://line.me/ti/g/Aw7HUmUvFH' }, { label: 'ไลน์กลุ่มบาสชาย', url: 'https://line.me/ti/g/QPCYa4ETq6' }] },
+  { id: 'peta', no: 8, name: 'เปตอง', sub: 'ชมรมเปตอง', cat: 'sport', zone: 'ZONE A', x: COL_A, y: rowA(4), w: 170, h: 80,
+    desc: 'เล่นกีฬาเปตองพร้อมกับพูดคุยเพื่อผ่อนคลายและอัพเดทข้อมูลข่าวสาร',
+    act: 'มีสนามเปตองจำลอง มินิเกมสนุกๆ แลกของรางวัลมากมาย',
+    note: 'น้องๆครับชุมนุมเปตองของเราต้องการน้องๆมากๆจริงแบบจิงจิง ขอร้องให้โอกาสพวกเราสักครั้งนะครับ มาเล่นเปตองกันเถอะครับ เล่นเปตอง เธอไม่มองเลยรือ',
+    ig: 'Petanque_mdkku',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSfeqmAcAcaJXFn0Q9-rFRHkgEfGbP093ov7EDlMYJ-b774PRQ/viewform' }] },
+  { id: 'athl', no: 9, name: 'กรีฑา', sub: 'ชมรมกรีฑา', cat: 'sport', zone: 'ZONE A', x: COL_A, y: rowA(5), w: 170, h: 80,
+    desc: 'ชวนกันวิ่งสวนเกษตร ฟิน ๆ',
+    act: 'ทดสอบ reaction time คือ เราก็ต่อคอมเราเข้ากับจอ ละบนจอก็เปิดเป็นวีดิโอปล่อยตัวนักวิ่งงี้ พอเสียงปืนดัง ก็ให้เขากดหยุดคลิป ขึ้นเวลาบนจองี้ แล้วบันทึกสถิติ',
+    note: '🏅 เข้าชุมนุมกรีฑาแล้วได้อะไร? ได้เหงื่อ ได้เพื่อน และได้ปวดขาแบบมีคุณภาพ',
+    ig: 'mdkku.runningclub',
+    joins: [{ label: 'เข้ากลุ่มไลน์', url: 'https://line.me/ti/g/-ekFpDuPYY' }] },
+
+  { id: 'voll', no: 4, name: 'Volleyball', sub: 'ชมรมวอลเลย์บอล', cat: 'sport', zone: 'ZONE B', x: COL_B1, y: rowA(0), w: 150, h: 80,
+    desc: 'ปกติชอบไปเล่นวอลเลย์ด้วยกันเมื่อมีโอกาส',
+    act: 'เซตบอลเข้าตะกร้าหรืออันเดอร์ให้ครบรอบ',
+    note: 'อยากให้นัองๆมาสมัครเข้าชมรมกันเยอะๆ พี่ๆเป็นกันเองมากๆๆ',
+    ig: 'mdkkuvolleyball',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSedLq-z0bSZJYFMv9_uq8f_DbF85NMeZ1cxZN8Ez3mitLKVmw/viewform' }] },
+  { id: 'badm', no: 5, name: 'Badminton', sub: 'ชมรมแบดมินตัน', cat: 'sport', zone: 'ZONE B', x: COL_B1, y: rowA(1), w: 150, h: 80,
+    desc: 'ตีแบดในทุก ๆ วัน / มีไปแข่งขันรายการต่าง ๆ เช่น syringe, kku&freshy game, กีฬาศูนย์แพทย์',
+    act: 'กิจกรรมสุดเซอร์ไพร์ส ถ้าอยากรู้ต้องมาที่งานเปิดโลกกิจกรรมน้า',
+    note: 'มาเล่นกันเยอะ ๆ น้า ชบรมแบดของเราอบอุ่น 200%',
+    ig: 'mdkkubadminton',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/np8CNCCE48S58qAv5' }] },
+  { id: 'espo', no: 12, name: 'E-sport', sub: 'ชมรมอีสปอร์ต', cat: 'sport', zone: 'ZONE B', x: COL_B2, y: rowA(0), w: 150, h: 80,
+    desc: 'เล่นเกมส์ออนไลน์ร่วมกัน',
+    act: 'มีเล่นเกม เล่นเสร็จแล้วก็แจกขนมอะไรประมาณนี้ๆ',
+    note: 'อยากให้มาเข้าร่วมซุ้มของพวกพี่นะครับ',
+    ig: 'esportsclub_mdkku',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/u/1/d/e/1FAIpQLSc3i5vGpw4heL0yvgWMIiIy23JjbyBZC2htJh22vbpu-GtiCw/viewform' }] },
+  { id: 'tenn', no: 6, name: 'Tennis', sub: 'ชมรมเทนนิส', cat: 'sport', zone: 'ZONE B', x: COL_B1, y: rowA(2), w: 150, h: 80,
+    desc: 'สามารถชวนกันมาตีเทนนิสได้ผ่านกลุ่มไลน์ชุมนุม มีจัดกิจกรรม tennis meeting ขึ้นเป็นช่วงๆเพื่อให้คนในชุมนุมได้รู้จักกัน เล่นเทนนิสร่วมกัน รวมถึงยังมีการแข่งขันคัดตัวแทนนักกีฬาเพื่อแข่ง syringe game และ kku game',
+    act: 'เพื่อแนะนำน้องเกี่ยวกับชมรม เข้าใจกิจกรรมในชมรม และบอกน้องถึงรายการแข่งขัน เข้าร่วม โดยกิจกรรมในซุ้มจะมีให้น้องลองตีลูกเทนนิสให้รอดผ่านรู สนุกๆจอยๆพร้อมแจกรางวัล',
+    note: 'ตีไม่เป็น ตีไม่เก่ง ก็มาจอยได้น้า เดี๋ยวพวกพี่ๆช่วยสอน และถ้าไม่มีไม้ ชุมนุมเราก็มีให้ยืมเช่นกันนะ',
+    ig: 'mdkku_tennis',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSc7YKfePV2kphCn4khNyCLC42K7JvG0pTnA9tJtlAJfF0Kokw/viewform?usp=publish-editor' }] },
+  { id: 'medi', no: 18, name: 'Mediup', sub: 'ชมรมแต่งหน้าและความงาม', cat: 'life', zone: 'ZONE B', x: COL_B2, y: rowA(1), w: 150, h: 80,
+    desc: 'แต่งหน้า ทำนางงาม',
+    act: 'เปิดทำ personal color ให้น้อง ๆ ได้มาลองทำ แล้วตอบคำถามนางงามต่อเพื่อได้รางวัล',
+    ig: 'mediup_mdkku' },
+  { id: 'arch', no: 10, name: 'ยิงธนู', sub: 'ชมรมยิงธนู', cat: 'sport', zone: 'ZONE B', x: COL_B1, y: rowA(3), w: 150, h: 80,
+    desc: 'ยิงธนูที่สนามของมหาลัยตรงข้ามปั๊มครับ เล่นเป็นหรือไม่เป็นก็มาได้นะครับ พี่ๆพร้อมสอนมากครับ',
+    act: 'ยิงเป้าครับน้อง ง่ายๆเลยยิงดีมีรางวัลให้ แล้วก็มาลองดูธนูของจริงได้ที่ซุ้มพี่เลยนะ',
+    note: 'คณะเรามีคันเหล็กให้เล่นด้วยนะครับ',
+    ig: 'archery.mdkku',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/QVAaUmsVj1RyzR2j7' }] },
+  { id: 'thmu', no: 16, name: 'ดนตรีไทย', sub: 'ชมรมดนตรีไทย', cat: 'arts', zone: 'ZONE B', x: COL_B2, y: rowA(2), w: 150, h: 80,
+    desc: 'กิจกรรมหลักๆ ของเราเน้นความสนุกและเป็นกันเอง เริ่มตั้งแต่การมา ซ้อมวง ด้วยกันแบบจอยๆ ใครไม่มีพื้นฐานไม่ต้องกลัวเพราะเรามีการต่อเพลง ที่รุ่นพี่จะคอยสอนให้แบบจับมือทำทีละท่อนจนกว่าจะเล่นได้ พอฝีมือเริ่มเข้าที่เราก็จะได้ไป ออกงานเล่นดนตรีกันนน',
+    act: 'อาจจะมีทายเพลงรึป่าวน้า ไหนๆก็เป็นวงดนตรีนี่นาาา 🤩🤩',
+    note: 'เล่นไม่เป็นไม่เป็นไร รุ่นพี่ใจดีพร้อมสอนจับมือทำ ห้องดนตรีเราเปิดต้อนรับเสมอ แอบกระซิบว่ามีขนมให้กินฟรีด้วย 😋',
+    ig: 'thai.music_mdkku',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/vkR8aEwhjpmYYmMLA' }] },
+  { id: 'swim', no: 7, name: 'ว่ายน้ำ', sub: 'ชมรมว่ายน้ำ', cat: 'sport', zone: 'ZONE B', x: COL_B2, y: rowA(3), w: 150, h: 80,
+    desc: 'ว่ายน้ำและโปโลน้ำ พูดคุยแลกเปลี่ยนเทคนิคการว่ายน้ำ ฝึกซ้อมว่ายน้ำ',
+    act: 'มีกิจกรรมจำลองการเล่นโปโลน้ำ โยนห่วงใส่ตะกร้า',
+    note: 'ลงสระไปด้วยกัน! 💙 ไม่ต้องว่ายเก่งก็เข้าร่วมได้ ชุมนุมว่ายน้ำเปิดโอกาสให้ทุกคนได้ออกกำลังกาย ฝึกทักษะการว่ายน้ำ เพิ่มความมั่นใจ และผ่อนคลายจากการเรียน พร้อมพบเพื่อนใหม่ที่ชอบว่ายน้ำเหมือนกัน',
+    ig: 'mdkku.swimmingclub',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSfSU3g5njVQMcGq_W5PePFAhcviTspnfvhXawJGTih7Dv1bQw/viewform' }] },
+
+  { id: 'sanp', no: 19, name: 'SANPI', sub: 'ชุมนุมสันทนาการและพิธีกร', cat: 'life', zone: 'ZONE C', x: COL_C, y: rowA(0), w: 170, h: 80,
+    desc: 'เต้นสันทนาการ ฝึกพิธีกร และเป็นพิธีกรในงานต่างๆ',
+    act: 'วงล้อมหัศจรรย์ ลุ้นรับรางวัลสุดพิเศษ',
+    note: 'มาเข้าชมรมกันเยอะฟน่า สนุกมากๆ มีอะไรให้ทำแน่นอน',
+    ig: 'Sanpi.club',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/ZjrZy8GsF4nToHH86' }] },
+  { id: 'fort', no: 20, name: 'หมอดวง', sub: 'ชมรมหมอดวง', cat: 'life', zone: 'ZONE C', x: COL_C, y: rowA(1), w: 170, h: 80,
+    desc: 'มีการsession พูดคุย ดูดวงกับอ.ปรม , ดูดวงฟรี',
+    act: 'ซุ้มสอยดาว และดูดวงฟรี',
+    ig: 'Mhorduang_mdkku' },
+  { id: 'chor', no: 15, name: 'MD Chorus', sub: 'ชมรมขับร้องประสานเสียง', cat: 'arts', zone: 'ZONE C', x: COL_C, y: rowA(2), w: 170, h: 80,
+    desc: 'MD Chorus เป็นชุมนุมขับร้องประสานเสียงของนักศึกษาแพทย์ เปิดโอกาสให้สมาชิกได้ฝึกทักษะการร้องเพลง การทำงานเป็นทีม และการแสดงบนเวที ผ่านการซ้อมร่วมกันและการเข้าร่วมแสดงในกิจกรรมต่าง ๆ ของคณะและมหาวิทยาลัย เช่น รับน้องบ้านเขียว, วันไหว้ครู, วันรับป้ายทอง เป็นต้น ไม่จำเป็นต้องมีพื้นฐานการร้องเพลงก็สามารถเข้าร่วมได้ทุกคน',
+    act: '🎵 Challenge ทายเพลงกับ MD Chorus❗️ หมุนวงล้อสุ่มโหมดและหมวดเพลง จากนั้นให้ผู้เล่น 2 คนร่วมทีม โดยคนหนึ่งร้องเพลงตามกติกาที่สุ่มได้ (เช่น ร้องด้วยเสียงสระเดียว) ส่วนอีกคนทายชื่อเพลงให้ถูกภายในเวลาที่กำหนด ทายถูกลุ้นรับของรางวัล พร้อมพูดคุยและทำความรู้จักกับชุมนุม MD Chorus ได้ตลอดงาน 🎤✨',
+    note: '🎶🎙️ไม่จำเป็นต้องมีพื้นฐานการร้องเพลง ขอเพียงรักในเสียงดนตรีและพร้อมเรียนรู้ก็สามารถเป็นส่วนหนึ่งของ MD Chorus ได้ มาร่วมสร้างเสียงเพลง ความทรงจำ และมิตรภาพดี ๆ ไปด้วยกัน แล้วพบกันนะ เด็กๆ 👧🏻👦🏻',
+    ig: 'mdchorus',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSc7yR512IdPxY-7i9hlAyOyd6sK-oceel4utoPc_4Uh6aN0nw/viewform?usp=publish-editor' }] },
+  { id: 'orch', no: 14, name: 'Orchestra', sub: 'วงออร์เคสตรา', cat: 'arts', zone: 'ZONE C', x: COL_C, y: rowA(3), w: 170, h: 80,
+    desc: 'เล่นดนตรีรวมกัน',
+    act: 'ทดลองเล่นเครื่องดนตรีที่สนใจ ทายเครื่องดนตรี ตอบคำถามแลกของรางวัล',
+    note: 'มีวิทยากรสอนเล่นเครื่องดนตรีเครื่องสายมืออาชีพมาสอน!! เล่นไม่เป็นก็เข้าร่วมได้',
+    ig: 'mdkku.orchestra',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://docs.google.com/forms/d/e/1FAIpQLSfbGIcvf8bSJRXmyOrvnPUdESH2xnNFhJHe3j58gj3Wc7FEMQ/viewform' }] },
+  { id: 'wmus', no: 17, name: 'ดนตรีสากล', sub: 'ชมรมดนตรีสากล', cat: 'arts', zone: 'ZONE C', x: COL_C, y: rowA(4), w: 170, h: 80,
+    desc: '- มีห้องซ้อมดนตรีให้ใช้ร่วมกัน เพื่อปลดปล่อย และผ่อนคลายจากการเรียน - จะมีกิจกรรมเพื่อเปิดโอกาสให้ได้แสดงความสามารถทางด้านดนตรีมาเรื่อยๆ (ติดตามได้ในกลุ่มไลน์และไอจี) - แอบสปอยว่าจะมีกิจกรรม First meet เร็วๆนี้ปีแรก',
+    act: '- มีกิจกรรมให้เล่นเกม 2 เกม เพื่อรับรางวัล โดยมีราวัลใหญ่คือ สกุชชี่ขนมปังง',
+    note: '- ร้องเพลงเพราะ เล่นดนตรีเป็น หรือต้องการที่จะลองอะไรใหม่ๆ ชุมนุมดนตรีสากลยินดีต้อนรับทุกๆเลยค้าบโผมม - มีกิจกรรมมากมายให้ได้โชว์ความสามารถ รุ่นพี่ในชุมนุมน่ารักๆ ห้องซ้อมอุปกรณ์ครบ แอร์ใหม่เย็นๆฉ่ำๆ - และแอบสปอยว่าจะมีกิจกรรม First meet เร็วๆนี้เป็นปีแรก',
+    ig: 'mdkku_musicclub',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/AYu3zUnTZePbdhFCA' }] },
+  { id: 'cook', no: 21, name: 'Cooking Club', sub: 'ชมรมทำอาหาร', cat: 'life', zone: 'ZONE C', x: COL_C, y: rowA(5), w: 170, h: 80,
+    desc: 'ทำอาหารค่ะะ',
+    act: 'กิจกรรมในวันงาน : ทายวัตถุดิบและอาหารผ่านเงา โดยมีให้ทาย 5 ครั้ง หากถูก 3 ใน 5 ครั้งขึ้นไปจะได้ของรางวัล',
+    note: 'เชิญชวน : เรื่องทำกับข้าวไม่เคยแพ้ใคร แต่เรื่องหัวใจทำไมเราแพ้เทอ',
+    ig: 'mdkku_cookingclub',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/EBXYBh2dr8hgKTYi8' }] },
+
+  { id: 'inte', no: 22, name: 'Interclub', sub: 'ชุมนุมแลกเปลี่ยนวัฒนธรรมนานาชาติ', cat: 'org', zone: 'ZONE D', x: 465, y: 898, w: 170, h: 68,
+    desc: 'ชุมนุม Interclub เป็นชุมนุมที่ส่งเสริมการแลกเปลี่ยนวัฒนธรรมและสร้างมิตรภาพระหว่างนักศึกษาไทยและนักศึกษาต่างชาติ โดยมีบทบาทในการต้อนรับ ดูแล และอำนวยความสะดวกให้แก่นักศึกษาต่างชาติที่มาแลกเปลี่ยน รวมถึงจัดกิจกรรมที่เปิดโอกาสให้สมาชิกได้เรียนรู้วัฒนธรรม ภาษา และวิถีชีวิตของแต่ละประเทศ ผ่านการทำกิจกรรมร่วมกัน การแลกเปลี่ยนประสบการณ์ และการสร้างเครือข่ายมิตรภาพในระดับนานาชาติ เพื่อพัฒนาทักษะการสื่อสาร ความเข้าใจในความหลากหลายทางวัฒนธรรม และการอยู่ร่วมกันในสังคมโลกอย่างสร้างสรรค์',
+    act: 'ภายในบูธจะมีกิจกรรมเกมสนุก ๆ ให้น้อง ๆ ได้ร่วมเล่น โดยผู้เข้าร่วมจะปิดตาและนำสติกเกอร์ไปแปะในตำแหน่งที่กำหนด เพื่อทดสอบการสื่อสารและสร้างเสียงหัวเราะไปพร้อมกัน นอกจากนี้ น้อง ๆ จะได้ทำความรู้จักกับพี่ ๆ จากชุมนุม Interclub พูดคุย แลกเปลี่ยนประสบการณ์เกี่ยวกับการดูแลนักศึกษาต่างชาติและกิจกรรมของชุมนุม พร้อมรับขนมเล็ก ๆ น้อย ๆ เป็นของที่ระลึกกลับบ้านอีกด้วย',
+    note: 'หากน้อง ๆ สนใจพบปะเพื่อนใหม่จากหลากหลายประเทศ เรียนรู้ภาษาและวัฒนธรรมผ่านประสบการณ์จริง พร้อมทั้งพัฒนาทักษะการสื่อสาร การทำงานเป็นทีม และความมั่นใจในการใช้ภาษา ไม่จำเป็นต้องเก่งภาษาอังกฤษ แค่เปิดใจ พร้อมเรียนรู้ และอยากสร้างมิตรภาพใหม่ ๆ มาสร้างความทรงจำดี ๆ และประสบการณ์สนุกไปด้วยกันนนนน้าาา',
+    ig: 'Interclub.mdkku',
+    joins: [{ label: 'เข้ากลุ่มไลน์', url: 'https://line.me/R/ti/g/Nh-_XtYzMt' }] },
+  { id: 'ifms', no: 24, name: 'IFMSA', sub: 'Int’l Federation of Medical Students’ Associations', cat: 'org', zone: 'ZONE D', x: 858, y: 898, w: 170, h: 68,
+    desc: 'The International Federation of Medical Students\' Associations (IFMSA) is one of the world\'s oldest and largest student-run organizations. Key Activities and Focus Areas: 1.Student Exchanges: IFMSA runs massive programs for Professional Exchanges (SCOPE) and Research Exchanges (SCORE), allowing thousands of students to do clinical or laboratory electives abroad each year. 2.Standing Committees: The organization focuses on six core areas: Medical Education, Public Health, Sexual and Reproductive Health, Human Rights and Peace, Professional Exchanges, and Research Exchanges. 3.Global Advocacy: IFMSA holds official relations with the World Health Organization (WHO) and the United Nations, frequently representing the youth perspective at high-level global health assemblies.',
+    act: 'เกมกิจกรรมแนะนำ ifmsa, Upcoming projects: เช่น ค่ายชายขอบ',
+    note: 'สำหรับคนที่อยากติดตามทำกิจกรรมร่วมกับ ifmsa ในอนาคต เข้ากลุ่ม OpenChat "IFMSA-KKU 26/27" ได้จากปุ่มด้านล่าง',
+    ig: 'ifmsa.kku.thailand',
+    joins: [{ label: 'เข้ากลุ่มไลน์', url: 'https://line.me/ti/g2/eUW67ROf5XaOJkJ59uEAwL3O-0yLylLVbTWuyQ?utm_source=invitation&utm_medium=link_copy&utm_campaign=default' }] },
+  { id: 'smst', no: 23, name: 'SMST', sub: 'Society of Medical Students of Thailand', cat: 'org', zone: 'ZONE D', x: 465, y: 990, w: 170, h: 68,
+    desc: 'สหพันธ์นิสิตนักศึกษาแพทย์แห่งประเทศไทย หรือ SMST เป็นองค์กรที่ส่งเสริมศักยภาพของนศพ. ผ่านการจัดค่ายต่างๆ โดย SMST KKU ทำหน้าที่เป็นแหล่งในการเชื่อมประสาน ระหว่าง SMST ส่วนกลาง และ มข. ทำหน้าที่ส่งนศพ.ไปเข้าร่วมงาน หรือบางทีสมาชิกก็อาจจะได้เป็นตัวแทนคณะ ไปเข้าร่วมงานต่างๆของ SMST ที่สนุก และได้คอนเนคชั่นระหว่างสถาบันมาด้วยนะะ',
+    act: 'อาจจะเป็นเกมเล็กๆน้อยๆ ที่ทำให้น้องๆรู้จักพี่ๆมากขึ้น นอกจากนี้ก็จะรุ้จักค่ายต่างๆมากขึ้นด้วยคับบ',
+    note: 'มาสมัครกันได้นะะ เพราะงาน first date ที่ smst จัด เป็นงานที่สนุกมาก พี่อยากให้น้องๆทุกคนได้ไปจริงๆ อย่าพลาดเด็ดขาด!!!',
+    ig: 'ext.affairkku',
+    joinhint: 'สมัครผ่านลิงก์ของอุปนอกได้เลยนะ เดี๋ยวพี่จะส่งให้อีกที' },
+  { id: 'amsa', no: 25, name: 'AMSA', sub: 'Asian Medical Students’ Association of Thailand', cat: 'org', zone: 'ZONE D', x: 858, y: 990, w: 170, h: 68,
+    desc: 'AMSA KKU (Asian Medical Students\' Association, Khon Kaen University) is a student-led organization dedicated to empowering future healthcare professionals through leadership, research, medical education, community service, and international collaboration. AMSA KKU organizes academic workshops, public health initiatives, and exchange opportunities to foster innovation, professional development, and a commitment to improving global health. AMSA KKU คือชุมชนนักศึกษาแพทย์ที่เปิดประตูสู่โอกาสระดับนานาชาติ ผ่านโครงการแลกเปลี่ยน การทำกิจกรรมร่วมกับนักศึกษาแพทย์จากทั่วโลก การพัฒนาภาวะผู้นำ และกิจกรรมวิชาการต่าง ๆ พร้อมสร้างมิตรภาพ ประสบการณ์ และมุมมองใหม่ ๆ ที่จะเติบโตไปพร้อมกับการเป็นแพทย์ในอนาคต โดยในทุกปีจะมีโครงการ AMSEP (Asian Medical Student Exchange Program) ที่จะพานักศึกษาแพทย์ไปโรงเรียนแพทย์ที่เป็น partner กับเราในปีนั้น ๆ ในต่างประเทศ และได้จัดกิจกรรมต้อนรับและดูแลนักศึกษาแพทย์จากต่างประเทศที่มาแลกเปลี่ยนที่มหาลัยขอนแก่นของเรา',
+    act: 'มีกิจกรรม quiz เกี่ยวกับแลกเปลี่ยน -> แจกขนม และมีการ show case กิจกรรมที่เคยทำ + ที่จะทำในปีนี้ รวมถึงให้คำแนะนำปรึกษาเรื่องการไปเเลกเปลี่ยน',
+    note: 'ถ้าน้องสนใจ Exchange อยากทำกิจกรรม พัฒนาทักษะ หรืออยากลองทำอะไรใหม่ ๆ ระหว่างเรียนแพทย์ มาเป็นส่วนหนึ่งของ AMSA KKU ได้เลย ที่นี่มีทั้งโอกาสไปแลกเปลี่ยนต่างประเทศ การจัดกิจกรรมเพื่อสังคม งานวิชาการ เวิร์กช็อปพัฒนาทักษะ รวมถึงโปรเจกต์ที่น้องสามารถลงมือทำจริงกับเพื่อน ๆ ในทีม ไม่ว่าจะเคยมีประสบการณ์หรือไม่ ทุกคนยินดีต้อนรับ แล้วมาเรียนรู้ สนุก และเติบโตไปด้วยกัน! 🌐❤️',
+    ig: 'amsa_kku',
+    joins: [{ label: 'สมัครเข้าชมรม', url: 'https://forms.gle/pkmrpYfSERYE6mE29' }] },
+];
+
+const W = 1600, H = 1210;
+
+/* Main-stage rundown, transcribed from the organisers' schedule artwork. */
+const RUNDOWN = [
+  { time: '15:10', act: 'SEROTONIX' },
+  { time: '15:35', act: 'สามสาขา' },
+  { time: '16:00', act: 'ไม่หมู' }
+];
+
+const ACTIVATION_KEYS = { Enter: 1, ' ': 1, Spacebar: 1 };
+
+class Component extends DCLogic {
+  state = { tx: 0, ty: 0, k: 0.5, sel: null, off: {}, open: false, narrow: false, phone: false, legendOpen: false };
+  _pts = new Map();
+
+  componentDidMount() {
+    this._vp = this.vp; this._in = this.inner;
+    this.fit();
+    this._onResize = () => this.fit();
+    window.addEventListener('resize', this._onResize);
+    // visualViewport fires on mobile browser-chrome collapse, which `resize` misses.
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', this._onResize);
+    this._onKeyWin = (e) => {
+      if (e.key === 'Escape' && this.state.open) { e.preventDefault(); this.closePanel(); }
+    };
+    window.addEventListener('keydown', this._onKeyWin);
+    if (this._vp) {
+      this._onWheel = (e) => {
+        e.preventDefault();
+        const r = this._vp.getBoundingClientRect();
+        this.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.0016));
+      };
+      this._vp.addEventListener('wheel', this._onWheel, { passive: false });
+    }
+  }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this._onResize);
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._onResize);
+    window.removeEventListener('keydown', this._onKeyWin);
+    if (this._vp && this._onWheel) this._vp.removeEventListener('wheel', this._onWheel);
+  }
+
+  fit = () => {
+    const el = this._vp || this.vp;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const phone = r.width < 640;
+    const pad = phone ? 10 : 28;
+    const k = Math.max(phone ? 0.26 : 0.45, Math.min((r.width - pad * 2) / W, (r.height - pad * 2) / H));
+    const ow = W * k, oh = H * k;
+    this.setState({
+      k,
+      tx: ow > r.width ? pad : (r.width - ow) / 2,
+      ty: oh > r.height ? pad : (r.height - oh) / 2,
+      narrow: r.width < 900,
+      phone
+    });
+  };
+
+  clampK = k => Math.max(0.2, Math.min(3, k));
+
+  zoomToRect = (rc) => {
+    const el = this._vp || this.vp; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const pad = this.state.phone ? 16 : 40;
+    const k = this.clampK(Math.min((r.width - pad * 2) / rc.w, (r.height - pad * 2) / rc.h));
+    this.setState({
+      k,
+      tx: r.width / 2 - (rc.x + rc.w / 2) * k,
+      ty: r.height / 2 - (rc.y + rc.h / 2) * k
+    });
+  };
+
+  zoomAt = (cx, cy, f) => {
+    this.setState(s => {
+      const k = this.clampK(s.k * f), r = k / s.k;
+      return { k, tx: cx - (cx - s.tx) * r, ty: cy - (cy - s.ty) * r };
+    });
+  };
+
+  zoomStep = f => {
+    const el = this._vp || this.vp; if (!el) return;
+    const r = el.getBoundingClientRect();
+    this.zoomAt(r.width / 2, r.height / 2, f);
+  };
+
+  onDown = (e) => {
+    if (e.target.closest && e.target.closest('[data-nodrag]')) return;
+    this._pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this._pts.size === 2) { this._drag = null; this._pinch = this.pinchState(); return; }
+    this._drag = { x: e.clientX, y: e.clientY, tx: this.state.tx, ty: this.state.ty, moved: false };
+  };
+
+  pinchState = () => {
+    const [a, b] = Array.from(this._pts.values());
+    return { d: Math.hypot(a.x - b.x, a.y - b.y), k: this.state.k };
+  };
+
+  onMove = (e) => {
+    if (!this._pts.has(e.pointerId)) return;
+    this._pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this._pts.size >= 2 && this._pinch) {
+      const el = this._vp || this.vp; if (!el) return;
+      const [a, b] = Array.from(this._pts.values());
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (this._pinch.d > 8) {
+        const box = el.getBoundingClientRect();
+        const cx = (a.x + b.x) / 2 - box.left, cy = (a.y + b.y) / 2 - box.top;
+        const target = this.clampK(this._pinch.k * (d / this._pinch.d));
+        this.setState(st => {
+          const ratio = target / st.k;
+          return { k: target, tx: cx - (cx - st.tx) * ratio, ty: cy - (cy - st.ty) * ratio };
+        });
+      }
+      this._moved = true;
+      return;
+    }
+    if (!this._drag) return;
+    const dx = e.clientX - this._drag.x, dy = e.clientY - this._drag.y;
+    if (!this._drag.moved && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+      this._drag.moved = true;
+      /* Capture only once a real drag starts. Capturing on pointerdown makes
+         the browser retarget the follow-up click to .vp, so taps on the stage
+         card, booths and the overlay buttons never reach their onClick. */
+      if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    this.setState({ tx: this._drag.tx + dx, ty: this._drag.ty + dy });
+  };
+
+  onUp = (e) => {
+    if (e && e.pointerId !== undefined) this._pts.delete(e.pointerId);
+    if (this._pts.size < 2) this._pinch = null;
+    if (this._drag) this._moved = this._drag.moved;
+    this._drag = null;
+  };
+
+  /* Scrolls a world-space rect into the visible viewport if it is off-screen.
+     Used when a booth receives keyboard focus, so focus never lands on
+     something the user cannot see. A no-op when the rect is already visible,
+     so tapping a booth never causes a surprise pan. */
+  ensureVisible = (rc) => {
+    const el = this._vp || this.vp; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const { tx, ty, k } = this.state;
+    const m = 28;
+    const x0 = rc.x * k + tx, y0 = rc.y * k + ty;
+    const x1 = (rc.x + rc.w) * k + tx, y1 = (rc.y + rc.h) * k + ty;
+    let ntx = tx, nty = ty;
+    if (x0 < m) ntx += m - x0; else if (x1 > r.width - m) ntx -= x1 - (r.width - m);
+    if (y0 < m) nty += m - y0; else if (y1 > r.height - m) nty -= y1 - (r.height - m);
+    if (ntx !== tx || nty !== ty) this.setState({ tx: ntx, ty: nty });
+  };
+
+  openPanel = (id, trigger) => {
+    this._lastFocus = trigger || null;
+    this.setState({ sel: id, open: true });
+    requestAnimationFrame(() => { if (this._panel && this._panel.focus) this._panel.focus(); });
+  };
+
+  closePanel = () => {
+    this.setState({ open: false, sel: null });
+    const el = this._lastFocus;
+    this._lastFocus = null;
+    if (el && el.focus) requestAnimationFrame(() => el.focus());
+  };
+
+  pick = (id) => (e) => {
+    if (this._moved) { this._moved = false; return; }
+    this.openPanel(id, e && e.currentTarget);
+  };
+
+  /* Enter/Space activation for the div-based booth and stage "buttons". */
+  onActivateKey = (fn) => (e) => {
+    if (ACTIVATION_KEYS[e.key]) { e.preventDefault(); fn(e); }
+  };
+
+  /* Pointer-free panning and zooming of the map. */
+  onViewKey = (e) => {
+    const step = e.shiftKey ? 140 : 56;
+    const pan = { ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+    if (pan) {
+      e.preventDefault();
+      this.setState(s => ({ tx: s.tx + pan[0], ty: s.ty + pan[1] }));
+      return;
+    }
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); this.zoomStep(1.28); }
+    else if (e.key === '-' || e.key === '_') { e.preventDefault(); this.zoomStep(1 / 1.28); }
+    else if (e.key === '0') { e.preventDefault(); this.fit(); }
+  };
+
+  toggleCat = (key) => () => this.setState(s => ({ off: Object.assign({}, s.off, { [key]: !s.off[key] }) }));
+
+  renderVals() {
+    const p = this.props;
+    const showNums = p.showBoothNumbers !== false;
+    const showLegend = p.showLegend !== false;
+    const side = p.panelSide === 'left' ? 'left' : 'right';
+    const round = p.roundedBooths ? '10px' : '2px';
+    const { sel, off, open, phone } = this.state;
+
+    const visible = b => !off[b.cat];
+
+    const booths = BOOTHS.map(b => {
+      const c = CATS[b.cat];
+      const dim = !visible(b);
+      const isSel = sel === b.id;
+      const activate = this.pick(b.id);
+      return {
+        num: showNums ? String(b.no).padStart(2, '0') : '',
+        name: b.name,
+        aria: b.name + ' · ' + b.sub + ' · ' + b.zone + ' · บูธหมายเลข ' + b.no,
+        // Filtered-out booths leave the tab order along with the pointer.
+        tabIndex: dim ? '-1' : '0',
+        numStyle: {
+          fontFamily: "'Cinzel', serif", fontSize: '13px', fontWeight: 700,
+          letterSpacing: '.14em', color: c.line, opacity: showNums ? 0.95 : 0, height: showNums ? 'auto' : 0
+        },
+        onClick: activate,
+        onKey: this.onActivateKey(activate),
+        onFocus: () => this.ensureVisible({ x: b.x, y: b.y, w: b.w, h: b.h }),
+        style: {
+          position: 'absolute', left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px',
+          background: c.fill, border: '3px solid ' + c.line, borderRadius: round, color: c.ink,
+          opacity: dim ? 0.16 : 1, pointerEvents: dim ? 'none' : 'auto',
+          transform: isSel ? 'translateY(-4px)' : 'none',
+          boxShadow: isSel ? '0 0 0 4px #9E3B26, 0 14px 26px rgba(90,45,20,.32)' : '0 2px 0 rgba(58,42,30,.2)',
+          zIndex: isSel ? 8 : 3
+        }
+      };
+    });
+
+    const chips = [{ key: 'all', label: 'ทั้งหมด', dot: '#9E3B26', count: BOOTHS.length, active: Object.keys(off).every(k => !off[k]), onClick: () => this.setState({ off: {} }) }]
+      .concat(Object.keys(CATS).map(k => ({
+        key: k, label: CATS[k].label, dot: CATS[k].fill,
+        count: BOOTHS.filter(b => b.cat === k).length,
+        active: !off[k], onClick: this.toggleCat(k)
+      })))
+      .map(c => Object.assign(c, {
+        pressed: c.active ? 'true' : 'false',
+        style: {
+          border: '1.5px solid ' + (c.active ? 'rgba(158,59,38,.5)' : 'rgba(58,42,30,.22)'),
+          background: c.active ? '#FDF7EA' : 'rgba(253,247,234,.35)',
+          color: c.active ? '#4A3520' : '#9A8468',
+          boxShadow: c.active ? '0 2px 0 rgba(58,42,30,.18)' : 'none'
+        }
+      }));
+
+    const b = BOOTHS.find(x => x.id === sel);
+    const isStage = sel === 'stage';
+    const cat = b ? CATS[b.cat] : null;
+
+    return {
+      booths, chips,
+      legendToggleStyle: {
+        display: showLegend && this.state.narrow ? 'flex' : 'none',
+        background: this.state.legendOpen ? '#FDF7EA' : 'rgba(253,247,234,.35)'
+      },
+      legendPressed: this.state.legendOpen ? 'true' : 'false',
+      toggleLegend: () => this.setState(s2 => ({ legendOpen: !s2.legendOpen })),
+      legendToggleLabel: this.state.legendOpen ? 'ซ่อนคำอธิบายสี' : 'คำอธิบายสี',
+      viewportRef: el => { this.vp = el; },
+      innerRef: el => { this.inner = el; },
+      panelRef: el => { this._panel = el; },
+      onViewKey: this.onViewKey,
+      innerStyle: {
+        position: 'absolute', left: 0, top: 0, width: W + 'px', height: H + 'px',
+        transformOrigin: '0 0',
+        transform: 'translate(' + this.state.tx + 'px,' + this.state.ty + 'px) scale(' + this.state.k + ')'
+      },
+      stageStyle: {
+        position: 'absolute', left: '800px', top: '70px', width: '400px', height: '124px',
+        borderRadius: round,
+        transform: isStage ? 'translateY(-3px)' : 'none',
+        boxShadow: isStage ? '0 0 0 4px #C98B2E, 0 14px 26px rgba(90,45,20,.35)' : '0 3px 0 rgba(58,42,30,.25)',
+        zIndex: 4
+      },
+      selectStage: this.pick('stage'),
+      selectStageKey: this.onActivateKey(this.pick('stage')),
+      focusStage: () => this.ensureVisible({ x: 800, y: 70, w: 400, h: 124 }),
+      jumps: [
+        { label: 'ทั้งผัง', rc: null },
+        { label: 'เวที', rc: { x: 790, y: 55, w: 420, h: 150 } },
+        { label: 'โซน A', rc: { x: 480, y: 195, w: 240, h: 580 } },
+        { label: 'โซน B', rc: { x: 820, y: 195, w: 360, h: 580 } },
+        { label: 'โซน C', rc: { x: 1300, y: 195, w: 230, h: 580 } },
+        { label: 'โซน D', rc: { x: 425, y: 825, w: 630, h: 270 } }
+      ].map(j => ({
+        label: j.label,
+        onClick: j.rc ? () => this.zoomToRect(j.rc) : this.fit
+      })),
+      zoomIn: () => this.zoomStep(1.28),
+      zoomOut: () => this.zoomStep(1 / 1.28),
+      resetView: this.fit,
+      onDown: this.onDown, onMove: this.onMove, onUp: this.onUp,
+      legend: Object.keys(CATS).map(k => ({ label: CATS[k].label, fill: CATS[k].fill, line: CATS[k].line })),
+      legendStyle: { display: showLegend && (!this.state.narrow || this.state.legendOpen) ? 'block' : 'none' },
+      panelOpenAttr: open ? 'true' : 'false',
+      panelStyle: phone ? {
+        left: 0, right: 0, bottom: 0,
+        maxHeight: '86%',
+        borderTop: '3px solid rgba(58,42,30,.4)',
+        boxShadow: open ? '0 -14px 40px rgba(58,42,30,.3)' : 'none',
+        transform: open ? 'translateY(0)' : 'translateY(103%)',
+        pointerEvents: open ? 'auto' : 'none'
+      } : {
+        top: 0, bottom: 0, [side]: 0,
+        width: 'min(27rem, 100%)',
+        borderLeft: side === 'right' ? '3px solid rgba(58,42,30,.35)' : 'none',
+        borderRight: side === 'left' ? '3px solid rgba(58,42,30,.35)' : 'none',
+        boxShadow: open ? '0 0 40px rgba(58,42,30,.28)' : 'none',
+        transform: open ? 'translateX(0)' : 'translateX(' + (side === 'right' ? '105%' : '-105%') + ')',
+        pointerEvents: open ? 'auto' : 'none'
+      },
+      grabStyle: { display: phone ? 'flex' : 'none' },
+      closePanel: this.closePanel,
+      panelTitle: isStage ? 'เวทีกลาง' : (b ? b.name : ''),
+      panelSub: isStage ? 'Main Stage · การแสดงตลอดทั้งวัน' : (b ? b.sub : ''),
+      panelChip: isStage ? 'เวที' : (cat ? cat.label : ''),
+      panelZone: isStage ? 'ZONE B · หน้าห้อง' : (b ? b.zone : ''),
+      chipStyle: {
+        padding: '.25rem .6875rem', fontSize: '.78125rem', fontWeight: 700, borderRadius: '2px',
+        background: isStage ? '#9E3B26' : (cat ? cat.fill : '#EEE'),
+        border: '1.5px solid ' + (isStage ? '#3A2A1E' : (cat ? cat.line : '#CCC')),
+        color: isStage ? '#FCEFD8' : (cat ? cat.ink : '#555')
+      },
+      /* Club copy comes from the organiser sheets, written by the clubs
+         themselves. A few fields are still blank, so each section is gated
+         rather than rendering an empty heading. */
+      /* The stage has no ABOUT section: the rundown is what people open it for. */
+      hasDesc: !!(b && b.desc),
+      panelDesc: b && b.desc ? b.desc : '',
+      hasActivity: isStage || !!(b && b.act),
+      panelActivity: isStage
+        ? 'มีจุดยืนชมด้านหน้าเวทีและที่นั่งสำรองสองฝั่ง ระหว่างรอบการแสดงสามารถเดินชมบูธโซน A–D ได้ตามปกติ'
+        : (b && b.act ? b.act : ''),
+      hasNote: !!(b && b.note),
+      panelNote: b && b.note ? b.note : '',
+      hasContact: !!(b && (b.ig || (b.joins && b.joins.length) || b.joinhint)),
+      /* Every sheet-3 row gave a bare handle, so the profile URL is safe to
+         build. Instagram treats usernames case-insensitively in the path. */
+      hasIg: !!(b && b.ig),
+      panelIg: b && b.ig ? b.ig : '',
+      panelIgHref: b && b.ig ? 'https://www.instagram.com/' + b.ig + '/' : '',
+      hasJoin: !!(b && b.joins && b.joins.length),
+      panelJoins: b && b.joins ? b.joins : [],
+      /* Some clubs described how to sign up instead of pasting a link; that
+         text is shown as prose so it never ends up inside an href. */
+      hasJoinHint: !!(b && b.joinhint),
+      panelJoinHint: b && b.joinhint ? b.joinhint : '',
+      hasSchedule: isStage,
+      rundown: RUNDOWN,
+      panelFoot: isStage
+        ? 'กำหนดการอาจปรับเปลี่ยนได้ตามหน้างาน'
+        : 'สมัครสมาชิกได้ที่บูธ หรือที่จุดลงทะเบียนด้านหน้าโถงลิฟต์'
+    };
+  }
+}
+
+</script>
+</body>
+</html>
