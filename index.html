@@ -19,8 +19,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+Thai:wght@600;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet" />
 <style>
   /* ============================================================
-     Mobile-first. Base rules target phones; min-width queries
-     scale up. Map-canvas internals stay in px on purpose: they
+     Phone-only. There is one layout and it is the phone layout --
+     the map is handed out as a QR code at the venue, so a wide
+     window just gets the same UI, not a second design to maintain.
+     Map-canvas internals stay in px on purpose: they
      are coordinates inside a 1600x1210 world that is CSS-scaled
      as a whole, so relative units there would distort the plan.
      ============================================================ */
@@ -132,13 +134,57 @@
     animation: drift 34s ease-in-out infinite alternate;
   }
 
-  /* ---- zone jump bar (floats over the map) ---- */
-  /* The strip runs the full width but is mostly transparent, and it sits above
-     the map. Without this the empty part of it swallows taps meant for the
-     stage card and the booths underneath. */
-  .jumps {
-    position: absolute; z-index: 6; display: flex; pointer-events: none;
+  /* ---- floating top layer: search + zone jumps ----
+     Both float over the map rather than taking fixed height, so the map keeps
+     the full screen the way a maps app does. The containers are transparent
+     and must not swallow taps meant for booths underneath, hence
+     pointer-events: none with auto re-enabled on the controls themselves. */
+  .topstack {
+    position: absolute; z-index: 9; pointer-events: none;
     top: .625rem; left: calc(.625rem + var(--sl)); right: calc(.625rem + var(--sr));
+    display: flex; flex-direction: column; gap: .5rem;
+  }
+  .search { pointer-events: none; min-width: 0; }
+  .search-pill {
+    pointer-events: auto; display: flex; align-items: center; gap: .375rem;
+    min-height: var(--tap); padding: 0 .25rem 0 .75rem;
+    background: var(--paper); border: 1.5px solid var(--edge); border-radius: 2px;
+    box-shadow: 0 3px 12px rgba(90,45,20,.2);
+  }
+  .search-pill:focus-within { border-color: var(--clay); box-shadow: 0 3px 14px rgba(158,59,38,.28); }
+  .search-ico { flex: none; font-size: 1.125rem; line-height: 1; color: var(--faint); }
+  /* 1rem = 16px: anything smaller makes iOS Safari zoom the page on focus. */
+  .search-in {
+    flex: 1 1 auto; min-width: 0; height: var(--tap);
+    border: 0; background: transparent; outline: none;
+    font-family: 'Sarabun', sans-serif; font-size: 1rem; color: var(--ink);
+  }
+  .search-in::placeholder { color: var(--faint); opacity: .9; }
+  .search-clear {
+    flex: none; width: var(--tap); height: var(--tap);
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: 0; cursor: pointer; font-size: .9375rem; color: var(--muted);
+  }
+  .results {
+    pointer-events: auto; margin-top: .375rem; max-height: min(24rem, 46vh);
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    background: var(--paper); border: 1.5px solid var(--edge); border-radius: 2px;
+    box-shadow: 0 6px 22px rgba(90,45,20,.26);
+  }
+  .result {
+    display: flex; align-items: center; gap: .625rem; width: 100%;
+    min-height: var(--tap); padding: .5rem .75rem; text-align: left; cursor: pointer;
+    background: none; border: 0; border-bottom: 1px solid var(--edge-soft);
+  }
+  .result:last-child { border-bottom: 0; }
+  .result-sw { flex: none; width: .8125rem; height: .8125rem; border-radius: 2px; }
+  .result-txt { display: flex; flex-direction: column; min-width: 0; }
+  .result-t { font-size: .9375rem; font-weight: 700; color: var(--ink); }
+  .result-s { font-size: .75rem; color: var(--muted-2); }
+  .result-empty { padding: .8125rem .75rem; font-size: .875rem; color: var(--faint); }
+
+  .jumps {
+    display: flex; pointer-events: none; min-width: 0;
     gap: .5rem; overflow-x: auto; scrollbar-width: none; touch-action: pan-x;
     -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
   }
@@ -193,7 +239,7 @@
     box-shadow: 0 0 0 6px var(--clay), 0 14px 26px rgba(90,45,20,.32) !important;
   }
 
-  /* ---- detail panel: bottom sheet on phones, side panel from 640px ---- */
+  /* ---- detail panel: always a bottom sheet ---- */
   .panel {
     position: absolute; z-index: 12; display: flex; flex-direction: column;
     background: var(--paper);
@@ -205,8 +251,18 @@
     visibility: hidden;
     transition: transform .34s cubic-bezier(.22,.9,.3,1), visibility 0s linear .34s;
   }
+  /* While a finger is on the grab handle the sheet must track it 1:1, so the
+     slide transition is suspended for the duration of the drag. */
+  .panel[data-drag="true"] { transition: none; }
   .panel:focus { outline: none; }
-  .panel-grab { justify-content: center; padding: .5rem 0 .125rem; }
+  /* The whole strip is the drag target, not just the 54px pill -- a 44px-tall
+     full-width band is what makes the swipe feel like a native sheet.
+     touch-action: none stops Safari from claiming the gesture as a page scroll. */
+  .panel-grab {
+    justify-content: center; align-items: center;
+    min-height: var(--tap); padding: .375rem 0 .125rem;
+    touch-action: none; cursor: grab;
+  }
   .panel-grab span { width: 3.375rem; height: 5px; border-radius: 3px; background: rgba(58,42,30,.3); }
   .panel-head {
     flex: none; padding: 1rem 1.25rem;
@@ -265,21 +321,21 @@
   .ig-link { color: var(--clay); font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 2px; }
   .panel-foot { margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(58,42,30,.18); font-size: .8125rem; line-height: 1.6; color: var(--faint); }
 
-  /* ============================ tablet ============================ */
-  @media (min-width: 640px) {
-    .hdr { padding-top: clamp(.75rem, 2.2vw, 1.375rem); padding-bottom: clamp(.75rem, 1.8vw, 1rem); }
-    .eyebrow { font-size: .875rem; }
-    .subtitle { font-size: 1.0625rem; }
-    .chip { min-height: 2.25rem; padding: .5rem .875rem; font-size: .875rem; }
-    .jump { min-height: 2.25rem; font-size: .8125rem; padding: 0 .9375rem; }
-    .panel-body { padding: 1.25rem 1.5rem calc(1.75rem + var(--sb)); }
-  }
+  /* The tablet block that used to live here shrank .chip and .jump to 36px
+     tall from 640px up -- a width plenty of phones reach in landscape, which
+     put both below the 44px touch minimum. Dropped: one size, always tappable. */
 
   /* ==================== short viewports (landscape phones) ==================== */
   @media (max-height: 560px) {
     .eyebrow, .subtitle, .hdr-glow { display: none; }
     .title { font-size: clamp(1.25rem, 4.5vw, 1.75rem); }
     .hdr { padding-top: .375rem; padding-bottom: .375rem; }
+    /* Two stacked floating rows would eat most of a landscape phone's map
+       area, so search and zone jumps share one row instead. */
+    .topstack { flex-direction: row; align-items: flex-start; gap: .5rem; }
+    .search { flex: 0 1 13rem; max-width: 13rem; }
+    .jumps { flex: 1 1 auto; }
+    .results { max-height: 60vh; }
   }
 
   /* ==================== hover: pointer devices only ====================
@@ -400,10 +456,42 @@
     </div>
     </div>
 
-    <div class="jumps" data-nodrag role="group" aria-label="ข้ามไปยังโซน">
-      <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="6">
-        <button type="button" class="jump" onClick="{{ j.onClick }}">{{ j.label }}</button>
-      </sc-for>
+    <div class="topstack">
+      <div class="search" data-nodrag role="search">
+        <div class="search-pill">
+          <span class="search-ico" aria-hidden="true">⌕</span>
+          <input class="search-in" type="text" inputmode="search" enterkeyhint="go"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                 aria-label="ค้นหาชมรมหรือหมายเลขบูธ" placeholder="ค้นหาชมรม · หมายเลขบูธ · โซน"
+                 ref="{{ searchRef }}" value="{{ query }}"
+                 onChange="{{ onSearch }}" onKeyDown="{{ onSearchKey }}" />
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ true }}">
+            <button type="button" class="search-clear" aria-label="ล้างคำค้นหา" onClick="{{ clearSearch }}">✕</button>
+          </sc-if>
+        </div>
+        <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ true }}">
+          <div class="results" role="list">
+            <sc-for list="{{ results }}" as="s" hint-placeholder-count="4">
+              <button type="button" class="result" onClick="{{ s.onClick }}">
+                <span class="result-sw" style="{{ s.swatch }}"></span>
+                <span class="result-txt">
+                  <span class="result-t">{{ s.title }}</span>
+                  <span class="result-s">{{ s.sub }}</span>
+                </span>
+              </button>
+            </sc-for>
+            <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+              <p class="result-empty">ไม่พบชมรมที่ตรงกับ “{{ query }}”</p>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+
+      <div class="jumps" data-nodrag role="group" aria-label="ข้ามไปยังโซน">
+        <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="6">
+          <button type="button" class="jump" onClick="{{ j.onClick }}">{{ j.label }}</button>
+        </sc-for>
+      </div>
     </div>
 
     <div class="legend" data-nodrag style="{{ legendStyle }}" role="group" aria-label="คำอธิบายสี">
@@ -429,8 +517,14 @@
     </div>
 
     <div class="panel" data-nodrag role="dialog" tabindex="-1" aria-label="รายละเอียดชมรม"
-         data-open="{{ panelOpenAttr }}" ref="{{ panelRef }}" style="{{ panelStyle }}">
-      <div class="panel-grab" style="{{ grabStyle }}">
+         data-open="{{ panelOpenAttr }}" data-drag="{{ panelDragAttr }}"
+         ref="{{ panelRef }}" style="{{ panelStyle }}">
+      <!-- Gesture affordance only; the ✕ button is the accessible way to close,
+           so this stays out of the a11y tree rather than becoming a button
+           that keyboard users can focus but never activate. -->
+      <div class="panel-grab" style="{{ grabStyle }}" aria-hidden="true"
+           onPointerDown="{{ sheetDown }}" onPointerMove="{{ sheetMove }}"
+           onPointerUp="{{ sheetUp }}" onPointerCancel="{{ sheetUp }}">
         <span></span>
       </div>
       <div class="panel-head">
@@ -511,7 +605,7 @@
 </div>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;showLegend&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;showBoothNumbers&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;roundedBooths&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;panelSide&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;right&quot;,&quot;left&quot;],&quot;default&quot;:&quot;right&quot;,&quot;tsType&quot;:&quot;'right' | 'left'&quot;,&quot;section&quot;:&quot;แผนที่&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;showLegend&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;showBoothNumbers&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;},&quot;roundedBooths&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;แผนที่&quot;}}">
 const CATS = {
   sport: { label: 'กีฬา',                  fill: '#BFD99A', line: '#7C9F52', ink: '#2E4319' },
   arts:  { label: 'ดนตรี/ศิลปะการแสดง',     fill: '#F6D48A', line: '#C99A34', ink: '#5A3F0E' },
@@ -678,8 +772,51 @@ const RUNDOWN = [
 
 const ACTIVATION_KEYS = { Enter: 1, ' ': 1, Spacebar: 1 };
 
+/* Momentum is motion the user did not ask for, so it is skipped entirely when
+   the OS says to reduce motion. Read once: the setting does not change often
+   and matchMedia in a per-frame path is wasteful. */
+const REDUCED_MOTION = typeof matchMedia === 'function' &&
+  matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* World-space box of the main stage, shared by the jump chip, the search
+   result and keyboard focus so they can never drift apart. */
+const STAGE_RC = { x: 790, y: 55, w: 420, h: 150 };
+
+/* Flat search index built once at load. `key` holds what a visitor is likely
+   to type (club name, Thai subtitle, zone, booth number); `hay` adds the long
+   description so "ดูดวง" or "esports" also finds a booth whose title doesn't
+   contain the word. Matches on `key` outrank matches on `hay` only. */
+const SEARCH = BOOTHS.map(b => ({
+  id: b.id,
+  title: b.name,
+  sub: b.sub + ' · ' + b.zone + ' · บูธ ' + b.no,
+  fill: CATS[b.cat].fill,
+  line: CATS[b.cat].line,
+  rc: { x: b.x, y: b.y, w: b.w, h: b.h },
+  /* The zone is indexed in both spellings: the map labels read "ZONE A" but
+     the jump chips (and everyone talking about the venue) say "โซน A". */
+  key: (b.name + ' ' + b.sub + ' ' + b.zone + ' ' + b.zone.replace('ZONE', 'โซน') +
+        ' ' + b.no + ' บูธ ' + b.no + ' ' + CATS[b.cat].label).toLowerCase(),
+  hay: ((b.desc || '') + ' ' + (b.act || '') + ' ' + (b.ig || '')).toLowerCase()
+})).concat([{
+  id: 'stage',
+  title: 'เวทีกลาง',
+  sub: 'Main Stage · ตารางการแสดง',
+  fill: '#C9552F', line: '#3A2A1E',
+  rc: STAGE_RC,
+  key: 'เวที เวทีกลาง main stage',
+  hay: 'ตารางการแสดง rundown folk song การแสดง'
+}]);
+
 class Component extends DCLogic {
-  state = { tx: 0, ty: 0, k: 0.5, sel: null, off: {}, open: false, narrow: false, phone: false, legendOpen: false };
+  state = {
+    tx: 0, ty: 0, k: 0.5, sel: null, off: {}, open: false,
+    legendOpen: false,
+    q: '',            // search text
+    dy: 0,            // how far the bottom sheet has been dragged down
+    dragging: false,  // suspends the sheet's slide transition mid-drag
+    anim: false       // eases the map transform for programmatic jumps only
+  };
   _pts = new Map();
 
   componentDidMount() {
@@ -707,57 +844,169 @@ class Component extends DCLogic {
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', this._onResize);
     window.removeEventListener('keydown', this._onKeyWin);
     if (this._vp && this._onWheel) this._vp.removeEventListener('wheel', this._onWheel);
+    clearTimeout(this._animT);
+    if (this._raf) cancelAnimationFrame(this._raf);
   }
 
   fit = () => {
     const el = this._vp || this.vp;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const phone = r.width < 640;
-    const pad = phone ? 10 : 28;
-    const k = Math.max(phone ? 0.26 : 0.45, Math.min((r.width - pad * 2) / W, (r.height - pad * 2) / H));
+    const pad = 10;
+    const k = Math.max(0.26, Math.min((r.width - pad * 2) / W, (r.height - pad * 2) / H));
     const ow = W * k, oh = H * k;
     this.setState({
       k,
       tx: ow > r.width ? pad : (r.width - ow) / 2,
-      ty: oh > r.height ? pad : (r.height - oh) / 2,
-      narrow: r.width < 900,
-      phone
+      ty: oh > r.height ? pad : (r.height - oh) / 2
     });
   };
 
   clampK = k => Math.max(0.2, Math.min(3, k));
 
+  /* Programmatic jumps (search result, zone chip, ± buttons, tapping a booth)
+     glide instead of teleporting -- an instant cut from the whole plan to one
+     booth leaves you with no idea which way you moved. Dragging and pinching
+     stay transition-free, so the map never feels laggy under the finger. */
+  animate = () => {
+    if (REDUCED_MOTION) return;
+    clearTimeout(this._animT);
+    this.setState({ anim: true });
+    this._animT = setTimeout(() => this.setState({ anim: false }), 380);
+  };
+
+  cutAnim = () => {
+    clearTimeout(this._animT);
+    if (this.state.anim) this.setState({ anim: false });
+  };
+
+  /* Cached so the pan/glide loop doesn't hit getBoundingClientRect every frame. */
+  rect = () => {
+    const el = this._vp || this.vp;
+    if (el) this._rect = el.getBoundingClientRect();
+    return this._rect;
+  };
+
+  /* Keeps one axis of the map anchored to the viewport. Previously tx/ty were
+     unbounded, so one hard flick could throw the whole plan off-screen with no
+     way back except the ⤢ button -- the single most disorienting thing about
+     the old map. SLACK leaves a little rubber so it still feels loose. */
+  clampAxis = (v, size, view) => {
+    const SLACK = 48;
+    if (size <= view) {
+      const c = (view - size) / 2;
+      return Math.min(c + SLACK, Math.max(c - SLACK, v));
+    }
+    return Math.min(SLACK, Math.max(view - size - SLACK, v));
+  };
+
+  /* viewW/viewH default to the full viewport, but callers that know part of it
+     is hidden behind the open panel pass the visible box instead. */
+  clampPan = (tx, ty, k, viewW, viewH) => {
+    const r = this.rect();
+    if (!r) return { tx, ty };
+    const vw = viewW === undefined ? r.width : viewW;
+    const vh = viewH === undefined ? r.height : viewH;
+    return { tx: this.clampAxis(tx, W * k, vw), ty: this.clampAxis(ty, H * k, vh) };
+  };
+
+  /* The slice of map still visible once the sheet is open. Everything that
+     recentres the view aims at this box rather than the whole viewport, so a
+     booth never ends up behind the sheet that was opened to describe it. */
+  viewBox = () => {
+    const r = this.rect();
+    if (!r) return { w: 0, h: 0, cx: 0, cy: 0 };
+    if (!this.state.open) return { w: r.width, h: r.height, cx: r.width / 2, cy: r.height / 2 };
+    const sheet = this._panel
+      ? Math.min(this._panel.getBoundingClientRect().height, r.height * 0.62)
+      : r.height * 0.5;
+    const h = Math.max(140, r.height - sheet);
+    return { w: r.width, h, cx: r.width / 2, cy: h / 2 };
+  };
+
   zoomToRect = (rc) => {
-    const el = this._vp || this.vp; if (!el) return;
-    const r = el.getBoundingClientRect();
-    const pad = this.state.phone ? 16 : 40;
-    const k = this.clampK(Math.min((r.width - pad * 2) / rc.w, (r.height - pad * 2) / rc.h));
-    this.setState({
-      k,
-      tx: r.width / 2 - (rc.x + rc.w / 2) * k,
-      ty: r.height / 2 - (rc.y + rc.h / 2) * k
-    });
+    const r = this.rect(); if (!r) return;
+    this.animate();
+    const v = this.viewBox();
+    const pad = 16;
+    const k = this.clampK(Math.min((v.w - pad * 2) / rc.w, (v.h - pad * 2) / rc.h));
+    const c = this.clampPan(v.cx - (rc.x + rc.w / 2) * k, v.cy - (rc.y + rc.h / 2) * k, k, v.w, v.h);
+    this.setState({ k, tx: c.tx, ty: c.ty });
+  };
+
+  /* Centres a booth in whatever map area the panel leaves free, and zooms in
+     if the current scale is too far out to read it. This is the "the pin stays
+     visible above the card" behaviour people expect from a maps app -- before,
+     the sheet would slide up directly over the booth you had just tapped. */
+  reveal = (rc) => {
+    const r = this.rect(); if (!r) return;
+    this.animate();
+    const v = this.viewBox();
+    const want = Math.min(0.85, (v.w - 48) / rc.w, (v.h - 48) / rc.h);
+    const k = this.clampK(Math.max(this.state.k, Math.min(want, 0.85)));
+    const c = this.clampPan(v.cx - (rc.x + rc.w / 2) * k, v.cy - (rc.y + rc.h / 2) * k, k, v.w, v.h);
+    this.setState({ k, tx: c.tx, ty: c.ty });
   };
 
   zoomAt = (cx, cy, f) => {
     this.setState(s => {
       const k = this.clampK(s.k * f), r = k / s.k;
-      return { k, tx: cx - (cx - s.tx) * r, ty: cy - (cy - s.ty) * r };
+      return Object.assign({ k }, this.clampPan(cx - (cx - s.tx) * r, cy - (cy - s.ty) * r, k));
     });
   };
 
   zoomStep = f => {
-    const el = this._vp || this.vp; if (!el) return;
-    const r = el.getBoundingClientRect();
+    const r = this.rect(); if (!r) return;
+    this.animate();
     this.zoomAt(r.width / 2, r.height / 2, f);
+  };
+
+  /* ---- momentum ----
+     A flick that stops dead the instant the finger lifts reads as a broken
+     map. This decays the last sampled velocity over a few frames instead. */
+  stopGlide = () => {
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+    this._v = null;
+  };
+
+  glide = () => {
+    if (!this._v || REDUCED_MOTION) return;
+    let vx = this._v.x * 15, vy = this._v.y * 15;   // px/ms -> px/frame
+    if (Math.hypot(vx, vy) < 2.5) return;
+    const step = () => {
+      vx *= 0.92; vy *= 0.92;
+      if (Math.hypot(vx, vy) < 0.35) { this._raf = null; return; }
+      this.setState(s => this.clampPan(s.tx + vx, s.ty + vy, s.k));
+      this._raf = requestAnimationFrame(step);
+    };
+    this._raf = requestAnimationFrame(step);
   };
 
   onDown = (e) => {
     if (e.target.closest && e.target.closest('[data-nodrag]')) return;
+    this.stopGlide();
+    this.cutAnim();
+    this.rect();
+    /* Double-tap to zoom, but only on empty map: on a booth the second tap
+       would fight the panel that the first tap just opened. */
+    const onMap = !(e.target.closest && e.target.closest('.booth, .stage-card'));
+    const t = e.timeStamp || 0;
+    if (onMap && this._pts.size === 0 && this._tap &&
+        t - this._tap.t < 320 &&
+        Math.abs(e.clientX - this._tap.x) < 32 && Math.abs(e.clientY - this._tap.y) < 32) {
+      this._tap = null;
+      const r = this._rect;
+      if (r) this.zoomAt(e.clientX - r.left, e.clientY - r.top, 1.85);
+      return;
+    }
+    this._tap = { t, x: e.clientX, y: e.clientY };
+    /* Remembered for onUp: a tap that lands on empty map dismisses the panel,
+       the way tapping the map behind a place card does in a maps app. */
+    this._bgTap = onMap;
     this._pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this._pts.size === 2) { this._drag = null; this._pinch = this.pinchState(); return; }
     this._drag = { x: e.clientX, y: e.clientY, tx: this.state.tx, ty: this.state.ty, moved: false };
+    this._last = { x: e.clientX, y: e.clientY, t: e.timeStamp || 0 };
   };
 
   pinchState = () => {
@@ -793,14 +1042,33 @@ class Component extends DCLogic {
          card, booths and the overlay buttons never reach their onClick. */
       if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
     }
-    this.setState({ tx: this._drag.tx + dx, ty: this._drag.ty + dy });
+    /* Exponentially smoothed velocity: a single raw sample is far too noisy on
+       the last frame before liftoff, which is exactly the one we throw with. */
+    const t = e.timeStamp || 0;
+    if (this._last) {
+      const dt = Math.max(1, t - this._last.t);
+      const nx = (e.clientX - this._last.x) / dt, ny = (e.clientY - this._last.y) / dt;
+      this._v = this._v ? { x: this._v.x * 0.7 + nx * 0.3, y: this._v.y * 0.7 + ny * 0.3 }
+                        : { x: nx, y: ny };
+    }
+    this._last = { x: e.clientX, y: e.clientY, t };
+    const c = this.clampPan(this._drag.tx + dx, this._drag.ty + dy, this.state.k);
+    this.setState({ tx: c.tx, ty: c.ty });
   };
 
   onUp = (e) => {
     if (e && e.pointerId !== undefined) this._pts.delete(e.pointerId);
     if (this._pts.size < 2) this._pinch = null;
-    if (this._drag) this._moved = this._drag.moved;
+    const drag = this._drag;
+    if (drag) this._moved = drag.moved;
     this._drag = null;
+    this._last = null;
+    if (drag && drag.moved && this._pts.size === 0) this.glide();
+    else this._v = null;
+    /* Tap on empty map closes the sheet. `pick` runs on the later click event
+       and only fires for booths, so the two never collide. */
+    if (drag && !drag.moved && this._bgTap && this.state.open) this.closePanel();
+    this._bgTap = false;
   };
 
   /* Scrolls a world-space rect into the visible viewport if it is off-screen.
@@ -822,20 +1090,98 @@ class Component extends DCLogic {
 
   openPanel = (id, trigger) => {
     this._lastFocus = trigger || null;
-    this.setState({ sel: id, open: true });
+    this.setState({ sel: id, open: true, dy: 0 });
     requestAnimationFrame(() => { if (this._panel && this._panel.focus) this._panel.focus(); });
   };
 
   closePanel = () => {
-    this.setState({ open: false, sel: null });
+    this.setState({ open: false, sel: null, dy: 0, dragging: false });
+    this._sheet = null;
     const el = this._lastFocus;
     this._lastFocus = null;
     if (el && el.focus) requestAnimationFrame(() => el.focus());
   };
 
+  rcOf = (id) => {
+    const hit = SEARCH.filter(s => s.id === id)[0];
+    return hit ? hit.rc : null;
+  };
+
   pick = (id) => (e) => {
     if (this._moved) { this._moved = false; return; }
+    this.stopGlide();
     this.openPanel(id, e && e.currentTarget);
+    /* Wait a frame so the sheet has laid out and viewBox() can measure it;
+       otherwise the booth gets centred against the wrong free area. */
+    const rc = this.rcOf(id);
+    if (rc) requestAnimationFrame(() => this.reveal(rc));
+  };
+
+  /* ---- bottom sheet: swipe down to dismiss ----
+     The grab handle has always looked draggable but wasn't, so the first
+     instinct on a phone (flick the card away) did nothing. `.panel` carries
+     data-nodrag, so the map underneath stays put while this runs. */
+  sheetDown = (e) => {
+    this._sheet = { y: e.clientY, t: e.timeStamp || 0 };
+    this.setState({ dragging: true });
+    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  sheetMove = (e) => {
+    if (!this._sheet) return;
+    this.setState({ dy: Math.max(0, e.clientY - this._sheet.y) });
+  };
+
+  sheetUp = (e) => {
+    const s = this._sheet; if (!s) return;
+    this._sheet = null;
+    const dy = Math.max(0, e.clientY - s.y);
+    const dt = Math.max(1, (e.timeStamp || 0) - s.t);
+    this.setState({ dy: 0, dragging: false });
+    // Either a long enough pull or a fast enough flick dismisses.
+    if (dy > 96 || dy / dt > 0.5) this.closePanel();
+  };
+
+  /* ---- search ---- */
+  onSearch = (e) => this.setState({ q: e.target.value });
+
+  clearSearch = () => {
+    this.setState({ q: '' });
+    if (this._search && this._search.focus) this._search.focus();
+  };
+
+  goTo = (id) => () => {
+    const rc = this.rcOf(id);
+    this.setState({ q: '' });
+    if (this._search && this._search.blur) this._search.blur();   // drops the iOS keyboard
+    this.openPanel(id, null);
+    if (rc) requestAnimationFrame(() => this.reveal(rc));
+  };
+
+  onSearchKey = (e) => {
+    /* Escape clears the query only. Without stopPropagation the window-level
+       handler would also close an open panel, so one keypress would undo two
+       separate things. */
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.clearSearch(); return; }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const top = this.matches()[0];
+    if (top) this.goTo(top.id)();
+  };
+
+  /* Title/subtitle hits rank above description-only hits, so typing "ดนตรี"
+     lists the music clubs before a sports club that merely mentions it. */
+  matches = () => {
+    const q = (this.state.q || '').trim().toLowerCase();
+    if (!q) return [];
+    const out = [];
+    for (let i = 0; i < SEARCH.length; i++) {
+      const s = SEARCH[i], at = s.key.indexOf(q);
+      const rank = at === 0 ? 0 : at > 0 ? 1 : (s.hay.indexOf(q) >= 0 ? 2 : -1);
+      if (rank >= 0) out.push({ s, rank, at: at < 0 ? 999 : at });
+    }
+    out.sort((a, b) => a.rank - b.rank || a.at - b.at);
+    return out.slice(0, 8).map(o => o.s);
   };
 
   /* Enter/Space activation for the div-based booth and stage "buttons". */
@@ -863,9 +1209,8 @@ class Component extends DCLogic {
     const p = this.props;
     const showNums = p.showBoothNumbers !== false;
     const showLegend = p.showLegend !== false;
-    const side = p.panelSide === 'left' ? 'left' : 'right';
     const round = p.roundedBooths ? '10px' : '2px';
-    const { sel, off, open, phone } = this.state;
+    const { sel, off, open } = this.state;
 
     const visible = b => !off[b.cat];
 
@@ -917,11 +1262,12 @@ class Component extends DCLogic {
     const b = BOOTHS.find(x => x.id === sel);
     const isStage = sel === 'stage';
     const cat = b ? CATS[b.cat] : null;
+    const results = this.matches();
 
     return {
       booths, chips,
       legendToggleStyle: {
-        display: showLegend && this.state.narrow ? 'flex' : 'none',
+        display: showLegend ? 'flex' : 'none',
         background: this.state.legendOpen ? '#FDF7EA' : 'rgba(253,247,234,.35)'
       },
       legendPressed: this.state.legendOpen ? 'true' : 'false',
@@ -933,7 +1279,8 @@ class Component extends DCLogic {
       onViewKey: this.onViewKey,
       innerStyle: {
         position: 'absolute', left: 0, top: 0, width: W + 'px', height: H + 'px',
-        transformOrigin: '0 0',
+        transformOrigin: '0 0', willChange: 'transform',
+        transition: this.state.anim ? 'transform .36s cubic-bezier(.22,.61,.36,1)' : 'none',
         transform: 'translate(' + this.state.tx + 'px,' + this.state.ty + 'px) scale(' + this.state.k + ')'
       },
       stageStyle: {
@@ -946,9 +1293,25 @@ class Component extends DCLogic {
       selectStage: this.pick('stage'),
       selectStageKey: this.onActivateKey(this.pick('stage')),
       focusStage: () => this.ensureVisible({ x: 800, y: 70, w: 400, h: 124 }),
+
+      /* ---- search ---- */
+      searchRef: el => { this._search = el; },
+      query: this.state.q,
+      hasQuery: !!(this.state.q || '').trim(),
+      results: results.map(s => ({
+        title: s.title,
+        sub: s.sub,
+        swatch: { background: s.fill, border: '1.5px solid ' + s.line },
+        onClick: this.goTo(s.id)
+      })),
+      noResults: results.length === 0,
+      onSearch: this.onSearch,
+      onSearchKey: this.onSearchKey,
+      clearSearch: this.clearSearch,
+
       jumps: [
         { label: 'ทั้งผัง', rc: null },
-        { label: 'เวที', rc: { x: 790, y: 55, w: 420, h: 150 } },
+        { label: 'เวที', rc: STAGE_RC },
         { label: 'โซน A', rc: { x: 480, y: 195, w: 240, h: 580 } },
         { label: 'โซน B', rc: { x: 820, y: 195, w: 360, h: 580 } },
         { label: 'โซน C', rc: { x: 1300, y: 195, w: 230, h: 580 } },
@@ -959,28 +1322,27 @@ class Component extends DCLogic {
       })),
       zoomIn: () => this.zoomStep(1.28),
       zoomOut: () => this.zoomStep(1 / 1.28),
-      resetView: this.fit,
+      resetView: () => { this.animate(); this.fit(); },
       onDown: this.onDown, onMove: this.onMove, onUp: this.onUp,
+      sheetDown: this.sheetDown, sheetMove: this.sheetMove, sheetUp: this.sheetUp,
       legend: Object.keys(CATS).map(k => ({ label: CATS[k].label, fill: CATS[k].fill, line: CATS[k].line })),
-      legendStyle: { display: showLegend && (!this.state.narrow || this.state.legendOpen) ? 'block' : 'none' },
+      /* The colour key is opt-in rather than always-on: on a phone it would
+         otherwise sit permanently over the bottom-left corner of the map. */
+      legendStyle: { display: showLegend && this.state.legendOpen ? 'block' : 'none' },
       panelOpenAttr: open ? 'true' : 'false',
-      panelStyle: phone ? {
+      panelDragAttr: this.state.dragging ? 'true' : 'false',
+      panelStyle: {
         left: 0, right: 0, bottom: 0,
-        maxHeight: '86%',
+        /* Was 86%: the sheet covered nearly the whole screen, so opening a
+           booth meant losing sight of the map. 68% keeps the plan in view and
+           still shows the club heading plus the first paragraph. */
+        maxHeight: '68%',
         borderTop: '3px solid rgba(58,42,30,.4)',
         boxShadow: open ? '0 -14px 40px rgba(58,42,30,.3)' : 'none',
-        transform: open ? 'translateY(0)' : 'translateY(103%)',
-        pointerEvents: open ? 'auto' : 'none'
-      } : {
-        top: 0, bottom: 0, [side]: 0,
-        width: 'min(27rem, 100%)',
-        borderLeft: side === 'right' ? '3px solid rgba(58,42,30,.35)' : 'none',
-        borderRight: side === 'left' ? '3px solid rgba(58,42,30,.35)' : 'none',
-        boxShadow: open ? '0 0 40px rgba(58,42,30,.28)' : 'none',
-        transform: open ? 'translateX(0)' : 'translateX(' + (side === 'right' ? '105%' : '-105%') + ')',
+        transform: open ? 'translateY(' + this.state.dy + 'px)' : 'translateY(103%)',
         pointerEvents: open ? 'auto' : 'none'
       },
-      grabStyle: { display: phone ? 'flex' : 'none' },
+      grabStyle: { display: 'flex' },
       closePanel: this.closePanel,
       panelTitle: isStage ? 'เวทีกลาง' : (b ? b.name : ''),
       panelSub: isStage ? 'Main Stage · การแสดงตลอดทั้งวัน' : (b ? b.sub : ''),
