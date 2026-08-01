@@ -33,6 +33,10 @@
     --clay: #9E3B26; --gold: #A07C46;
     --edge: rgba(58,42,30,.34); --edge-soft: rgba(58,42,30,.2);
     --tap: 2.75rem;                       /* 44px minimum touch target */
+    /* Floating map controls only. 44px is the minimum for small square
+       targets; the search field spans the screen, so its horizontal reach
+       carries the tap and 40px of height is comfortable. */
+    --tap-sm: 2.5rem;
     --pad-x: clamp(.875rem, 3vw, 2.125rem);
     --sl: env(safe-area-inset-left, 0px);
     --sr: env(safe-area-inset-right, 0px);
@@ -61,7 +65,7 @@
   /* ---- header ---- */
   .hdr {
     position: relative; flex: none; overflow: hidden;
-    padding: .625rem calc(var(--pad-x) + var(--sr)) .625rem calc(var(--pad-x) + var(--sl));
+    padding: .4375rem calc(var(--pad-x) + var(--sr)) .5rem calc(var(--pad-x) + var(--sl));
     background: linear-gradient(178deg, #BFE3F2 0%, #DDEFF0 42%, var(--sand) 100%);
     border-bottom: 2px solid rgba(158,59,38,.22);
   }
@@ -70,22 +74,22 @@
     background: radial-gradient(ellipse 60% 55% at 50% 78%, rgba(255,214,140,.85), rgba(255,214,140,0) 70%);
     animation: sunrise 6s ease-in-out infinite alternate;
   }
-  .hdr-in { position: relative; display: flex; flex-direction: column; gap: .5rem; max-width: 105rem; margin: 0 auto; }
+  .hdr-in { position: relative; display: flex; flex-direction: column; gap: .375rem; max-width: 105rem; margin: 0 auto; }
   .brand { display: flex; flex-direction: column; gap: .125rem; min-width: 0; }
   .eyebrow {
     font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 500;
-    font-size: .6875rem; letter-spacing: .42em; color: #2B5B7A; text-transform: uppercase;
+    font-size: .625rem; letter-spacing: .34em; color: #2B5B7A; text-transform: uppercase;
   }
   .title {
     margin: 0; font-family: 'Cinzel', 'Noto Serif Thai', serif; font-weight: 700;
-    font-size: clamp(1.875rem, 8vw, 4.625rem); line-height: .92; letter-spacing: .04em;
+    font-size: clamp(1.375rem, 6vw, 2.125rem); line-height: .95; letter-spacing: .04em;
     background: linear-gradient(174deg, #F6C86A 4%, #E2A02F 44%, #B26A1C 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     text-shadow: 0 2px 0 rgba(255,255,255,.35);
   }
   .subtitle {
-    font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: .8125rem;
-    line-height: 1.5; color: #6B4B12; letter-spacing: .02em; text-wrap: balance;
+    font-family: 'Noto Serif Thai', serif; font-weight: 600; font-size: .75rem;
+    line-height: 1.4; color: #6B4B12; letter-spacing: .02em; text-wrap: balance;
   }
 
   @keyframes drift {
@@ -141,29 +145,29 @@
      pointer-events: none with auto re-enabled on the controls themselves. */
   .topstack {
     position: absolute; z-index: 9; pointer-events: none;
-    top: .625rem; left: calc(.625rem + var(--sl)); right: calc(.625rem + var(--sr));
-    display: flex; flex-direction: column; gap: .5rem;
+    top: .5rem; left: calc(.5rem + var(--sl)); right: calc(.5rem + var(--sr));
+    display: flex; flex-direction: column; gap: .4375rem;
   }
   .search { pointer-events: none; min-width: 0; }
   .search-pill {
-    pointer-events: auto; display: flex; align-items: center; gap: .375rem;
-    min-height: var(--tap); padding: 0 .25rem 0 .75rem;
+    pointer-events: auto; display: flex; align-items: center; gap: .3125rem;
+    min-height: var(--tap-sm); padding: 0 .1875rem 0 .625rem;
     background: var(--paper); border: 1.5px solid var(--edge); border-radius: 2px;
     box-shadow: 0 3px 12px rgba(90,45,20,.2);
   }
   .search-pill:focus-within { border-color: var(--clay); box-shadow: 0 3px 14px rgba(158,59,38,.28); }
-  .search-ico { flex: none; font-size: 1.125rem; line-height: 1; color: var(--faint); }
+  .search-ico { flex: none; font-size: 1rem; line-height: 1; color: var(--faint); }
   /* 1rem = 16px: anything smaller makes iOS Safari zoom the page on focus. */
   .search-in {
-    flex: 1 1 auto; min-width: 0; height: var(--tap);
+    flex: 1 1 auto; min-width: 0; height: var(--tap-sm);
     border: 0; background: transparent; outline: none;
     font-family: 'Sarabun', sans-serif; font-size: 1rem; color: var(--ink);
   }
   .search-in::placeholder { color: var(--faint); opacity: .9; }
   .search-clear {
-    flex: none; width: var(--tap); height: var(--tap);
+    flex: none; width: var(--tap-sm); height: var(--tap-sm);
     display: flex; align-items: center; justify-content: center;
-    background: none; border: 0; cursor: pointer; font-size: .9375rem; color: var(--muted);
+    background: none; border: 0; cursor: pointer; font-size: .875rem; color: var(--muted);
   }
   .results {
     pointer-events: auto; margin-top: .375rem; max-height: min(24rem, 46vh);
@@ -191,9 +195,9 @@
   .jump { pointer-events: auto; }
   .jumps::-webkit-scrollbar { display: none; }
   .jump {
-    flex: none; min-height: var(--tap); padding: 0 1rem;
+    flex: none; min-height: var(--tap-sm); padding: 0 .875rem;
     display: inline-flex; align-items: center; white-space: nowrap;
-    font-family: 'Sarabun', sans-serif; font-size: .875rem; font-weight: 700;
+    font-family: 'Sarabun', sans-serif; font-size: .8125rem; font-weight: 700;
     color: var(--ink-2); background: rgba(253,247,234,.94);
     border: 1.5px solid var(--edge); border-radius: 2px; cursor: pointer;
     box-shadow: 0 2px 8px rgba(90,45,20,.14);
